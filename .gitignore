@@ -69,12 +69,18 @@ instance/
 # Sphinx documentation
 docs/_build/
 docs/build/
+docs/.doctrees/
+docs/html/
+docs/latex/
+docs/pdf/
 
 # PyBuilder
 target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints/
+.ipynb_checkpoints/
 
 # IPython
 profile_default/
@@ -98,12 +104,16 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.*.local
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+conda/
+.conda/
 
 # Spyder project settings
 .spyderproject
@@ -134,8 +144,8 @@ cython_debug/
 .idea/
 *.swp
 *.swo
-*~
-.DS_Store
+*.sublime-project
+*.sublime-workspace
 
 # Project-specific
 # Trained models and checkpoints
@@ -145,25 +155,51 @@ my_models/
 *.ckpt
 checkpoints/
 models/
+*.pkl
+*.pickle
 
 # Data directories (large datasets)
 examples/scripts/data/
+scripts/data/
+# Large binary data files
 *.npz
 *.h5
 *.hdf5
+*.npy
+*.mat
+# Keep small test data files
+!tests/data/**/*.npz
+!tests/data/**/*.npy
 
 # Experiment tracking
 wandb/
 mlruns/
 .mlflow/
 comet_ml/
+tensorboard_logs/
+lightning_logs/
+runs/
+outputs/
+results/
+logs/
+*.log
 
 # Temporary files
 *.tmp
 *.temp
 *.bak
+your_file.*
+*.orig
+*.rej
+.#*
 
 # OS files
 Thumbs.db
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
 
