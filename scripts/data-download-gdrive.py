@@ -412,50 +412,95 @@ def main():
     # where root is the folder passed to CelebA(). Since we pass dfolder (data/celeba),
     # it will look for data/celeba/celeba/img_align_celeba/
     # If the zip creates data/celeba/celeba/img_align_celeba/img_align_celeba/,
-    # we need to create a symlink or move files to the expected location
+    # we need to move files to the expected location
     expected_img_folder = celeba_subfolder / "img_align_celeba"
     
-    # Check if images are in nested location but torchvision expects them one level up
-    if img_folder != expected_img_folder and img_folder.exists():
-        nested_count = len(list(img_folder.glob("*.jpg")))
+    # Check if images are in nested location (img_align_celeba/img_align_celeba/)
+    nested_img_folder = celeba_subfolder / "img_align_celeba" / "img_align_celeba"
+    
+    if nested_img_folder.exists():
+        nested_count = len(list(nested_img_folder.glob("*.jpg")))
         if nested_count > 200000:
-            print(f"\n⚠ Images found in nested location: {img_folder}")
+            print(f"\n⚠ Images found in nested location: {nested_img_folder}")
             print(f"  torchvision expects: {expected_img_folder}")
             
-            # Check if expected location exists
+            # Check if expected location already has images
+            expected_count = 0
             if expected_img_folder.exists():
-                expected_count = len(list(expected_img_folder.glob("*.jpg")))
-                if expected_count < 200000:
-                    print(f"  Expected location has only {expected_count} images")
-                    print(f"  Creating symlink from nested location...")
-                    # Remove empty or incomplete expected folder
-                    if expected_count == 0:
+                # Check if it's the nested folder itself or has images
+                if expected_img_folder.is_dir():
+                    expected_count = len(list(expected_img_folder.glob("*.jpg")))
+            
+            if expected_count < 200000:
+                print(f"  Moving files from nested location to expected location...")
+                try:
+                    # If expected folder doesn't exist or is empty, move nested folder contents
+                    if not expected_img_folder.exists() or expected_count == 0:
+                        # Move all files from nested to expected location
+                        if expected_img_folder.exists() and expected_count == 0:
+                            # Remove empty expected folder
+                            try:
+                                expected_img_folder.rmdir()
+                            except:
+                                pass
+                        
+                        # Move contents from nested folder to expected location
+                        # The nested folder is inside the expected folder, so move contents up one level
+                        print(f"  Moving {nested_count} image files from nested to expected location...")
+                        expected_img_folder.mkdir(parents=True, exist_ok=True)
+                        
+                        moved_count = 0
+                        for img_file in tqdm(nested_img_folder.glob("*.jpg"), desc="Moving files", unit="file"):
+                            try:
+                                target_path = expected_img_folder / img_file.name
+                                if not target_path.exists():
+                                    shutil.move(str(img_file), str(target_path))
+                                    moved_count += 1
+                                else:
+                                    # File already exists, skip
+                                    img_file.unlink()
+                                    moved_count += 1
+                            except Exception as e:
+                                print(f"\n  Warning: Failed to move {img_file.name}: {e}")
+                                continue
+                        
+                        # Remove empty nested folder
                         try:
-                            expected_img_folder.rmdir()
+                            nested_img_folder.rmdir()
                         except:
                             pass
-                    # Create symlink
-                    try:
-                        if expected_img_folder.exists():
-                            expected_img_folder.unlink()  # Remove if it's a file
-                        expected_img_folder.symlink_to(img_folder)
-                        print(f"  ✓ Created symlink: {expected_img_folder} -> {img_folder}")
-                    except Exception as e:
-                        print(f"  ⚠ Could not create symlink: {e}")
-                        print(f"  torchvision may fail. Consider moving files manually.")
-            else:
-                # Create symlink to nested location
-                print(f"  Creating symlink to nested location...")
-                try:
-                    expected_img_folder.symlink_to(img_folder)
-                    print(f"  ✓ Created symlink: {expected_img_folder} -> {img_folder}")
+                        
+                        print(f"  ✓ Moved {moved_count} files to expected location")
+                        
+                        # Update img_folder to expected location
+                        img_folder = expected_img_folder
+                        final_count = len(list(img_folder.glob("*.jpg")))
+                        print(f"  ✓ Verification: {final_count} images in expected location")
+                    else:
+                        print(f"  Expected location already has {expected_count} images, keeping as is")
                 except Exception as e:
-                    print(f"  ⚠ Could not create symlink: {e}")
-                    print(f"  torchvision may fail. Consider moving files manually.")
+                    print(f"  ✗ Error moving files: {e}")
+                    print(f"  You may need to manually move files from:")
+                    print(f"    {nested_img_folder}")
+                    print(f"  to:")
+                    print(f"    {expected_img_folder}")
+                    return 1
     
-    # Update img_folder to expected location for verification
-    if expected_img_folder.exists() or expected_img_folder.is_symlink():
-        img_folder = expected_img_folder
+    # Final verification - ensure expected location has images
+    if expected_img_folder.exists():
+        expected_count = len(list(expected_img_folder.glob("*.jpg")))
+        if expected_count > 200000:
+            img_folder = expected_img_folder
+            final_count = expected_count
+            print(f"✓ Images verified at expected location: {img_folder} ({final_count} images)")
+        elif nested_img_folder.exists():
+            nested_count = len(list(nested_img_folder.glob("*.jpg")))
+            if nested_count > 200000:
+                print(f"\n⚠ WARNING: Images still in nested location!")
+                print(f"  Nested: {nested_img_folder} ({nested_count} images)")
+                print(f"  Expected: {expected_img_folder} ({expected_count} images)")
+                print(f"  torchvision will fail. Please move files manually or re-extract.")
+                return 1
     
     # Verify required files exist
     required_files = [
