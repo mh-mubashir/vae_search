@@ -680,11 +680,14 @@ def main(args):
         from pythae.trainers.training_callbacks import WandbCallback
 
         wandb_cb = WandbCallback()
+        # Only pass entity_name if it's explicitly provided and not the default
+        # If None, wandb will use the default logged-in user
+        entity_name = None if args.wandb_entity == "benchmark_team" else args.wandb_entity
         wandb_cb.setup(
             training_config,
             model_config=model_config,
             project_name=args.wandb_project,
-            entity_name=args.wandb_entity,
+            entity_name=entity_name,
         )
 
         callbacks.append(wandb_cb)

@@ -346,7 +346,11 @@ class WandbCallback(TrainingCallback):  # pragma: no cover
 
         training_config_dict = training_config.to_dict()
 
-        self.run = self._wandb.init(project=project_name, entity=entity_name)
+        # Only pass entity if provided, otherwise use default logged-in user
+        init_kwargs = {"project": project_name}
+        if entity_name is not None:
+            init_kwargs["entity"] = entity_name
+        self.run = self._wandb.init(**init_kwargs)
 
         if model_config is not None:
             model_config_dict = model_config.to_dict()
