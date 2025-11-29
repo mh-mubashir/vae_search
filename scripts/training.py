@@ -210,6 +210,9 @@ def main(args):
             from pythae.models.nn.benchmarks.celeba import (
                 Encoder_Conv_VAE_CELEBA as Encoder_VAE,
             )
+            from pythae.models.nn.benchmarks.celeba import (
+                Discriminator_Conv_CELEBA as Discriminator,
+            )
 
         elif args.nn == "resnet":
             from pythae.models.nn.benchmarks.celeba import (
