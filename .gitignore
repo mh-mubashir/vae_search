@@ -80,7 +80,7 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb_checkpoints/
-.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
 # IPython
 profile_default/
@@ -159,17 +159,16 @@ models/
 *.pickle
 
 # Data directories (large datasets)
-examples/scripts/data/
 scripts/data/
-# Large binary data files
+data/
 *.npz
 *.h5
 *.hdf5
 *.npy
 *.mat
 # Keep small test data files
-!tests/data/**/*.npz
-!tests/data/**/*.npy
+!pythae/tests/data/**/*.npz
+!pythae/tests/data/**/*.npy
 
 # Experiment tracking
 wandb/
@@ -187,19 +186,37 @@ logs/
 # Temporary files
 *.tmp
 *.temp
-*.bak
-your_file.*
-*.orig
-*.rej
-.#*
+.DS_Store
+Thumbs.db
 
 # OS files
-Thumbs.db
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Desktop.ini
+Thumbs.db
+
+# Large image files (except in showcases/examples)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+!pythae/examples/showcases/*.png
+!pythae/docs/source/imgs/*
+
+# CelebA dataset files (large)
+**/celeba/celeba/img_align_celeba.zip
+**/celeba/celeba/img_align_celeba/
+**/celeba/celeba/*.txt
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
 
