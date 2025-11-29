@@ -1,0 +1,15 @@
+{
+  "name": "BaseTrainerConfig",
+  "output_dir": "my_models_on_celeba",
+  "per_device_train_batch_size": 64,
+  "per_device_eval_batch_size": 64,
+  "num_epochs": 50,
+  "learning_rate": 0.001,
+  "steps_saving": 5,
+  "steps_predict": 5,
+  "train_dataloader_num_workers": 4,
+  "eval_dataloader_num_workers": 4,
+  "no_cuda": false,
+  "keep_best_on_train": false
+}
+
