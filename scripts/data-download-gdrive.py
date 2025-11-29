@@ -12,7 +12,7 @@ from pathlib import Path
 import torch
 import numpy as np
 from torchvision.datasets import CelebA
-from torchvision.transforms import PILToTensor
+from torchvision.transforms import PILToTensor, Resize, Compose
 from tqdm import tqdm
 import zipfile
 import shutil
@@ -354,8 +354,8 @@ def main():
     parser.add_argument(
         "-o", "--outdir",
         type=Path,
-        default=Path("data"),
-        help="output directory for processed data (default: data)"
+        default=Path(__file__).parent / "data",
+        help="output directory for processed data (default: scripts/data)"
     )
     
     parser.add_argument(
@@ -659,10 +659,15 @@ def main():
     
     print("Loading and processing training split...")
     try:
+        # Resize to 64x64 as expected by pythae CelebA encoders
+        celeba_transform = Compose([
+            Resize((64, 64)),
+            PILToTensor()
+        ])
         celeba_train = CelebA(
             str(dfolder),
             download=False,  # Don't download, we already have files
-            transform=PILToTensor(),
+            transform=celeba_transform,
             split="train"
         )
         # Wrap with robust dataset that skips corrupted images
@@ -720,7 +725,7 @@ def main():
         celeba_val = CelebA(
             str(dfolder),
             download=False,
-            transform=PILToTensor(),
+            transform=celeba_transform,  # Use same transform as training (resize to 64x64)
             split="valid"
         )
         # Wrap with robust dataset that skips corrupted images
