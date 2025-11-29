@@ -17,6 +17,10 @@ from tqdm import tqdm
 import zipfile
 import shutil
 import subprocess
+from torch.utils.data import Dataset
+from PIL import Image
+import PIL
+import warnings
 
 try:
     import gdown
@@ -88,6 +92,119 @@ def download_gdrive_folder(folder_url, output_dir, file_mapping=None):
             return False
     
     return True
+
+
+class RobustCelebA(Dataset):
+    """
+    Wrapper around CelebA dataset that skips corrupted or missing images.
+    Tracks and reports how many images were skipped.
+    """
+    def __init__(self, celeba_dataset, skip_errors=True, validate_upfront=True):
+        self.celeba_dataset = celeba_dataset
+        self.skip_errors = skip_errors
+        self.skipped_indices = set()
+        self.skipped_count = 0
+        self.skipped_files = []  # Track which files were skipped
+        
+        if validate_upfront:
+            # Pre-validate all images and build valid index mapping
+            print("Validating images (this may take a few minutes)...")
+            self.valid_indices = []
+            self.index_mapping = {}  # Maps new index to original CelebA index
+            
+            img_base_path = os.path.join(
+                celeba_dataset.root,
+                celeba_dataset.base_folder,
+                "img_align_celeba"
+            )
+            
+            for idx in tqdm(range(len(celeba_dataset)), desc="Checking images"):
+                try:
+                    img_filename = celeba_dataset.filename[idx]
+                    img_path = os.path.join(img_base_path, img_filename)
+                    
+                    # Check if file exists
+                    if not os.path.exists(img_path):
+                        self.skipped_indices.add(idx)
+                        self.skipped_count += 1
+                        self.skipped_files.append(img_filename)
+                        continue
+                    
+                    # Try to open and verify image (quick check)
+                    try:
+                        with Image.open(img_path) as img:
+                            img.verify()  # Verify it's a valid image
+                        
+                        # If we get here, image is valid
+                        self.index_mapping[len(self.valid_indices)] = idx
+                        self.valid_indices.append(idx)
+                    except Exception as e:
+                        # Image is corrupted
+                        self.skipped_indices.add(idx)
+                        self.skipped_count += 1
+                        self.skipped_files.append(img_filename)
+                        continue
+                        
+                except Exception as e:
+                    # Some other error
+                    self.skipped_indices.add(idx)
+                    self.skipped_count += 1
+                    if idx < len(celeba_dataset.filename):
+                        self.skipped_files.append(celeba_dataset.filename[idx])
+                    continue
+            
+            print(f"✓ Validation complete: {len(self.valid_indices)} valid images, {self.skipped_count} skipped")
+        else:
+            # Lazy validation - validate as we go
+            self.valid_indices = list(range(len(celeba_dataset)))
+            self.index_mapping = {i: i for i in range(len(celeba_dataset))}
+        
+    def __len__(self):
+        return len(self.valid_indices)
+    
+    def __getitem__(self, idx):
+        # Map our index to the original CelebA index
+        original_idx = self.index_mapping[idx]
+        
+        # Get the item from original dataset
+        # Wrap in try-except as a safety net
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                return self.celeba_dataset[original_idx]
+            except (PIL.UnidentifiedImageError, FileNotFoundError, OSError) as e:
+                # Image is corrupted or missing
+                if self.skip_errors:
+                    # Track this as skipped
+                    if original_idx not in self.skipped_indices:
+                        self.skipped_indices.add(original_idx)
+                        self.skipped_count += 1
+                        if original_idx < len(self.celeba_dataset.filename):
+                            self.skipped_files.append(self.celeba_dataset.filename[original_idx])
+                    
+                    # Try next valid image
+                    if idx + 1 < len(self.valid_indices):
+                        return self.__getitem__(idx + 1)
+                    elif len(self.valid_indices) > 0 and idx > 0:
+                        return self.__getitem__(idx - 1)
+                    else:
+                        raise RuntimeError(f"No valid images found. Skipped {self.skipped_count} images.")
+                else:
+                    raise
+            except Exception as e:
+                # Other errors - retry or raise
+                if attempt < max_retries - 1:
+                    continue
+                else:
+                    if self.skip_errors:
+                        warnings.warn(f"Error loading image at index {original_idx}: {e}")
+                        # Try to return a valid image
+                        if len(self.valid_indices) > 0:
+                            # Try a different index
+                            alt_idx = (idx + 1) % len(self.valid_indices)
+                            if alt_idx != idx:
+                                return self.__getitem__(alt_idx)
+                    raise
 
 
 def extract_zip_if_needed(zip_path, extract_to, use_system_unzip=True):
@@ -529,18 +646,22 @@ def main():
     
     print("Loading and processing training split...")
     try:
-        train_data = CelebA(
+        celeba_train = CelebA(
             str(dfolder),
             download=False,  # Don't download, we already have files
             transform=PILToTensor(),
             split="train"
         )
+        # Wrap with robust dataset that skips corrupted images
+        train_data = RobustCelebA(celeba_train, skip_errors=True)
     except Exception as e:
         print(f"ERROR loading training data: {e}")
         print(f"Check that files are in: {dfolder / 'celeba'}")
         return 1
     
-    print(f"Training samples: {len(train_data)}")
+    print(f"Training samples: {len(train_data)} valid images")
+    if train_data.skipped_count > 0:
+        print(f"  ⚠ Skipped {train_data.skipped_count} corrupted/missing images")
     
     # Limit dataset size if specified
     if args.max_samples and len(train_data) > args.max_samples:
@@ -565,17 +686,21 @@ def main():
     
     print("Loading and processing validation split...")
     try:
-        val_data = CelebA(
+        celeba_val = CelebA(
             str(dfolder),
             download=False,
             transform=PILToTensor(),
             split="valid"
         )
+        # Wrap with robust dataset that skips corrupted images
+        val_data = RobustCelebA(celeba_val, skip_errors=True)
     except Exception as e:
         print(f"ERROR loading validation data: {e}")
         return 1
     
-    print(f"Validation samples: {len(val_data)}")
+    print(f"Validation samples: {len(val_data)} valid images")
+    if val_data.skipped_count > 0:
+        print(f"  ⚠ Skipped {val_data.skipped_count} corrupted/missing images")
     
     # Limit validation size if specified
     if args.max_samples and len(val_data) > args.max_samples // 10:
@@ -619,6 +744,32 @@ def main():
     print(f"\n{'='*60}")
     print("✓ Complete! Dataset ready for training.")
     print(f"{'='*60}")
+    
+    # Report skipped images summary
+    total_skipped = train_data.skipped_count + val_data.skipped_count
+    if total_skipped > 0:
+        print(f"\n{'='*60}")
+        print("⚠ Summary of skipped images:")
+        print(f"{'='*60}")
+        print(f"  Training: {train_data.skipped_count} images skipped")
+        if train_data.skipped_count > 0 and len(train_data.skipped_files) <= 10:
+            print(f"    Skipped files: {', '.join(train_data.skipped_files[:10])}")
+        elif train_data.skipped_count > 10:
+            print(f"    First 10 skipped files: {', '.join(train_data.skipped_files[:10])}")
+        
+        print(f"  Validation: {val_data.skipped_count} images skipped")
+        if val_data.skipped_count > 0 and len(val_data.skipped_files) <= 10:
+            print(f"    Skipped files: {', '.join(val_data.skipped_files[:10])}")
+        elif val_data.skipped_count > 10:
+            print(f"    First 10 skipped files: {', '.join(val_data.skipped_files[:10])}")
+        
+        print(f"\n  Total: {total_skipped} images skipped")
+        print(f"  Successfully processed: {len(train_data) + len(val_data)} valid images")
+        print(f"{'='*60}")
+    else:
+        print(f"\n✓ All images processed successfully!")
+        print(f"  Training: {len(train_data)} images")
+        print(f"  Validation: {len(val_data)} images")
     
     return 0
 
