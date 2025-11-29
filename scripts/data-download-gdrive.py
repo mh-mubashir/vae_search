@@ -100,15 +100,25 @@ def extract_zip_if_needed(zip_path, extract_to, use_system_unzip=True):
     
     extract_to.mkdir(parents=True, exist_ok=True)
     
-    # Check if already fully extracted
-    existing_files = set(f.name for f in extract_to.glob("*.jpg"))
-    if len(existing_files) > 200000:  # CelebA has ~202k images
-        print(f"  ✓ Images already extracted ({len(existing_files)} files found)")
+    # Check if already fully extracted - check both direct and nested locations
+    # The zip may create extract_to/img_align_celeba/ structure
+    direct_files = set(f.name for f in extract_to.glob("*.jpg"))
+    nested_folder = extract_to / "img_align_celeba"
+    nested_files = set()
+    if nested_folder.exists():
+        nested_files = set(f.name for f in nested_folder.glob("*.jpg"))
+    
+    total_existing = len(direct_files) + len(nested_files)
+    if total_existing > 200000:  # CelebA has ~202k images
+        if len(nested_files) > len(direct_files):
+            print(f"  ✓ Images already extracted ({len(nested_files)} files found in nested location)")
+        else:
+            print(f"  ✓ Images already extracted ({len(direct_files)} files found)")
         return True
     
     print(f"  Extracting {zip_path.name} to {extract_to}...")
-    if len(existing_files) > 0:
-        print(f"  Resuming extraction ({len(existing_files)} files already exist)...")
+    if total_existing > 0:
+        print(f"  Resuming extraction ({total_existing} files already exist)...")
     
     # Try system unzip first (more memory efficient)
     if use_system_unzip:
@@ -124,7 +134,12 @@ def extract_zip_if_needed(zip_path, extract_to, use_system_unzip=True):
                     timeout=3600  # 1 hour timeout
                 )
                 if result.returncode == 0:
-                    final_count = len(list(extract_to.glob("*.jpg")))
+                    # Check both direct and nested locations
+                    direct_count = len(list(extract_to.glob("*.jpg")))
+                    nested_count = 0
+                    if nested_folder.exists():
+                        nested_count = len(list(nested_folder.glob("*.jpg")))
+                    final_count = direct_count + nested_count
                     print(f"  ✓ Extraction complete ({final_count} files)")
                     return True
                 else:
@@ -142,10 +157,11 @@ def extract_zip_if_needed(zip_path, extract_to, use_system_unzip=True):
             members = zip_ref.namelist()
             total = len(members)
             
-            # Filter out already extracted files
+            # Filter out already extracted files (check both locations)
+            all_existing = direct_files | nested_files
             members_to_extract = [
                 m for m in members 
-                if Path(extract_to / m).name not in existing_files
+                if Path(extract_to / m).name not in all_existing
             ]
             
             if len(members_to_extract) == 0:
@@ -300,38 +316,146 @@ def main():
             print("  2. Provide file IDs manually using --file-ids")
             print("  3. Download files manually and use --skip-download")
             return 1
-        
-        # Extract zip file if needed (unless skipping extraction)
-        zip_file = celeba_subfolder / "img_align_celeba.zip"
-        img_folder = celeba_subfolder / "img_align_celeba" / "img_align_celeba"
-        
-        if zip_file.exists():
-            # Check if already extracted
-            if img_folder.exists():
-                existing_count = len(list(img_folder.glob("*.jpg")))
-                if existing_count > 200000:
-                    print(f"\n✓ Images already extracted ({existing_count} files)")
-                elif existing_count > 0:
-                    print(f"\n⚠ Partial extraction found ({existing_count} files)")
-                    print(f"  Run this separately to complete extraction:")
-                    print(f"  python scripts/extract_celeba.py {zip_file} -o {img_folder}")
-                    if not args.skip_extraction:
-                        print(f"\n  Attempting to continue extraction...")
-                        extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
-                else:
-                    if not args.skip_extraction:
-                        print("\nExtracting zip file...")
-                        print("  (This may take 10-20 minutes. If killed, run separately:)")
-                        print(f"  python scripts/extract_celeba.py {zip_file} -o {img_folder}")
-                        extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
-                    else:
-                        print(f"\n⚠ Zip file exists but not extracted.")
-                        print(f"  Extract manually: python scripts/extract_celeba.py {zip_file} -o {img_folder}")
-        else:
-            print(f"\n⚠ Zip file not found at {zip_file}")
     else:
         print("Skipping download (--skip-download flag set)")
         print(f"Expected files in: {celeba_subfolder}")
+    
+    # Always check extraction status (regardless of download skip)
+    print(f"\n{'='*60}")
+    print("Checking extraction status...")
+    print(f"{'='*60}")
+    
+    zip_file = celeba_subfolder / "img_align_celeba.zip"
+    # The zip contains img_align_celeba folder, so extracted path is nested
+    img_folder = celeba_subfolder / "img_align_celeba" / "img_align_celeba"
+    # Also check the direct extraction location (in case zip structure differs)
+    img_folder_alt = celeba_subfolder / "img_align_celeba"
+    
+    if zip_file.exists():
+        # Check both possible locations
+        existing_count = 0
+        existing_count_alt = 0
+        
+        if img_folder.exists():
+            existing_count = len(list(img_folder.glob("*.jpg")))
+        if img_folder_alt.exists():
+            existing_count_alt = len(list(img_folder_alt.glob("*.jpg")))
+        
+        # Use the location with more images (likely the correct one)
+        if existing_count > existing_count_alt and existing_count > 200000:
+            print(f"✓ Images already extracted ({existing_count} files)")
+            print(f"  Location: {img_folder}")
+        elif existing_count_alt > existing_count and existing_count_alt > 200000:
+            print(f"✓ Images already extracted ({existing_count_alt} files)")
+            print(f"  Location: {img_folder_alt}")
+            img_folder = img_folder_alt  # Update to use this path
+        elif existing_count > 0 or existing_count_alt > 0:
+            total_found = max(existing_count, existing_count_alt)
+            print(f"⚠ Partial extraction found ({total_found} files)")
+            if existing_count > existing_count_alt:
+                print(f"  Location: {img_folder}")
+            else:
+                print(f"  Location: {img_folder_alt}")
+                img_folder = img_folder_alt
+            print(f"  Run this separately to complete extraction:")
+            print(f"  python scripts/extract_celeba.py {zip_file} -o {celeba_subfolder / 'img_align_celeba'}")
+            if not args.skip_extraction:
+                print(f"\n  Attempting to continue extraction...")
+                extract_zip_if_needed(zip_file, celeba_subfolder / "img_align_celeba", use_system_unzip=True)
+        else:
+            if not args.skip_extraction:
+                print("\nExtracting zip file...")
+                print("  (This may take 10-20 minutes. If killed, run separately:)")
+                print(f"  python scripts/extract_celeba.py {zip_file} -o {celeba_subfolder / 'img_align_celeba'}")
+                extract_zip_if_needed(zip_file, celeba_subfolder / "img_align_celeba", use_system_unzip=True)
+            else:
+                print(f"⚠ Zip file exists but not extracted.")
+                print(f"  Extract manually: python scripts/extract_celeba.py {zip_file} -o {celeba_subfolder / 'img_align_celeba'}")
+                print(f"\n  Or use system unzip:")
+                print(f"  cd {celeba_subfolder} && unzip -u img_align_celeba.zip -d img_align_celeba")
+    else:
+        print(f"⚠ Zip file not found at {zip_file}")
+        print(f"  Make sure the zip file is downloaded first.")
+    
+    # Verify extraction before proceeding - check both locations
+    final_count = 0
+    if img_folder.exists():
+        final_count = len(list(img_folder.glob("*.jpg")))
+    elif img_folder_alt.exists():
+        final_count = len(list(img_folder_alt.glob("*.jpg")))
+        img_folder = img_folder_alt  # Use alternative location
+    
+    if final_count < 200000:
+        print(f"\n{'='*60}")
+        print("ERROR: Images not fully extracted!")
+        print(f"{'='*60}")
+        print(f"Found only {final_count} images (need ~202,599)")
+        print(f"\nPlease extract the zip file first:")
+        print(f"  python scripts/extract_celeba.py {zip_file} -o {celeba_subfolder / 'img_align_celeba'}")
+        print(f"\nOr use system unzip:")
+        print(f"  cd {celeba_subfolder} && unzip -u img_align_celeba.zip -d img_align_celeba")
+        return 1
+    
+    if not img_folder.exists():
+        print(f"\n{'='*60}")
+        print("ERROR: Images folder not found!")
+        print(f"{'='*60}")
+        print(f"Checked: {img_folder}")
+        print(f"Also checked: {img_folder_alt}")
+        print(f"\nPlease extract the zip file first:")
+        print(f"  python scripts/extract_celeba.py {zip_file} -o {celeba_subfolder / 'img_align_celeba'}")
+        return 1
+    
+    print(f"✓ Using image folder: {img_folder} ({final_count} images)")
+    
+    # torchvision CelebA expects images at {root}/celeba/img_align_celeba/
+    # where root is the folder passed to CelebA(). Since we pass dfolder (data/celeba),
+    # it will look for data/celeba/celeba/img_align_celeba/
+    # If the zip creates data/celeba/celeba/img_align_celeba/img_align_celeba/,
+    # we need to create a symlink or move files to the expected location
+    expected_img_folder = celeba_subfolder / "img_align_celeba"
+    
+    # Check if images are in nested location but torchvision expects them one level up
+    if img_folder != expected_img_folder and img_folder.exists():
+        nested_count = len(list(img_folder.glob("*.jpg")))
+        if nested_count > 200000:
+            print(f"\n⚠ Images found in nested location: {img_folder}")
+            print(f"  torchvision expects: {expected_img_folder}")
+            
+            # Check if expected location exists
+            if expected_img_folder.exists():
+                expected_count = len(list(expected_img_folder.glob("*.jpg")))
+                if expected_count < 200000:
+                    print(f"  Expected location has only {expected_count} images")
+                    print(f"  Creating symlink from nested location...")
+                    # Remove empty or incomplete expected folder
+                    if expected_count == 0:
+                        try:
+                            expected_img_folder.rmdir()
+                        except:
+                            pass
+                    # Create symlink
+                    try:
+                        if expected_img_folder.exists():
+                            expected_img_folder.unlink()  # Remove if it's a file
+                        expected_img_folder.symlink_to(img_folder)
+                        print(f"  ✓ Created symlink: {expected_img_folder} -> {img_folder}")
+                    except Exception as e:
+                        print(f"  ⚠ Could not create symlink: {e}")
+                        print(f"  torchvision may fail. Consider moving files manually.")
+            else:
+                # Create symlink to nested location
+                print(f"  Creating symlink to nested location...")
+                try:
+                    expected_img_folder.symlink_to(img_folder)
+                    print(f"  ✓ Created symlink: {expected_img_folder} -> {img_folder}")
+                except Exception as e:
+                    print(f"  ⚠ Could not create symlink: {e}")
+                    print(f"  torchvision may fail. Consider moving files manually.")
+    
+    # Update img_folder to expected location for verification
+    if expected_img_folder.exists() or expected_img_folder.is_symlink():
+        img_folder = expected_img_folder
     
     # Verify required files exist
     required_files = [
