@@ -383,6 +383,19 @@ def main():
         help="Skip zip extraction. Let torchvision extract on-the-fly (more memory efficient)"
     )
     
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=None,
+        help="Directory to save checkpoints during processing (allows resuming if Step 3 fails)"
+    )
+    
+    parser.add_argument(
+        "--resume-from-checkpoint",
+        action="store_true",
+        help="Resume from checkpoint if available (skip Step 2 if batches already saved)"
+    )
+    
     args = parser.parse_args()
     
     # Check for GPU availability
@@ -679,10 +692,28 @@ def main():
     )
     
     train_batches = []
-    for b, (x, y) in enumerate(tqdm(train_loader, desc="Processing train")):
-        if device.type == "cuda":
-            x = x.to(device, non_blocking=True)
-        train_batches.append(x.cpu().numpy())
+    checkpoint_dir = args.checkpoint_dir if args.checkpoint_dir else dfolder / ".checkpoints"
+    checkpoint_dir = Path(checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    train_checkpoint = checkpoint_dir / "train_batches.npz"
+    
+    # Check if we can resume from checkpoint
+    if args.resume_from_checkpoint and train_checkpoint.exists():
+        print(f"Loading training batches from checkpoint: {train_checkpoint}")
+        checkpoint_data = np.load(train_checkpoint, allow_pickle=True)
+        train_batches = [checkpoint_data[f'batch_{i}'] for i in range(len(checkpoint_data.files))]
+        print(f"✓ Loaded {len(train_batches)} training batches from checkpoint")
+    else:
+        for b, (x, y) in enumerate(tqdm(train_loader, desc="Processing train")):
+            if device.type == "cuda":
+                x = x.to(device, non_blocking=True)
+            train_batches.append(x.cpu().numpy())
+        
+        # Save checkpoint after processing training data
+        print(f"\nSaving training batches checkpoint...")
+        checkpoint_dict = {f'batch_{i}': batch for i, batch in enumerate(train_batches)}
+        np.savez_compressed(train_checkpoint, **checkpoint_dict)
+        print(f"✓ Saved checkpoint: {train_checkpoint}")
     
     print("Loading and processing validation split...")
     try:
@@ -719,27 +750,69 @@ def main():
     )
     
     val_batches = []
-    for b, (x, y) in enumerate(tqdm(val_loader, desc="Processing val")):
-        if device.type == "cuda":
-            x = x.to(device, non_blocking=True)
-        val_batches.append(x.cpu().numpy())
+    val_checkpoint = checkpoint_dir / "val_batches.npz"
+    
+    # Check if we can resume from checkpoint
+    if args.resume_from_checkpoint and val_checkpoint.exists():
+        print(f"Loading validation batches from checkpoint: {val_checkpoint}")
+        checkpoint_data = np.load(val_checkpoint, allow_pickle=True)
+        val_batches = [checkpoint_data[f'batch_{i}'] for i in range(len(checkpoint_data.files))]
+        print(f"✓ Loaded {len(val_batches)} validation batches from checkpoint")
+    else:
+        for b, (x, y) in enumerate(tqdm(val_loader, desc="Processing val")):
+            if device.type == "cuda":
+                x = x.to(device, non_blocking=True)
+            val_batches.append(x.cpu().numpy())
+        
+        # Save checkpoint after processing validation data
+        print(f"\nSaving validation batches checkpoint...")
+        checkpoint_dict = {f'batch_{i}': batch for i, batch in enumerate(val_batches)}
+        np.savez_compressed(val_checkpoint, **checkpoint_dict)
+        print(f"✓ Saved checkpoint: {val_checkpoint}")
     
     # Save processed data
     print(f"\n{'='*60}")
     print("Step 3: Saving processed data")
     print(f"{'='*60}")
     
+    print("Concatenating training batches...")
+    import time
+    start_time = time.time()
     train_x = np.concatenate(train_batches)
+    concat_time = time.time() - start_time
+    print(f"✓ Concatenation complete ({concat_time:.1f} seconds)")
+    print(f"  Training array shape: {train_x.shape}, dtype: {train_x.dtype}")
+    print(f"  Memory size: {train_x.nbytes / (1024**3):.2f} GB")
+    
+    print(f"\nSaving training data (this may take 10-30 minutes)...")
+    print(f"  Writing to: {dfolder / 'train_data.npz'}")
+    start_time = time.time()
     train_output = dfolder / "train_data.npz"
     np.savez_compressed(train_output, data=train_x)
+    save_time = time.time() - start_time
+    file_size = train_output.stat().st_size / (1024**3)
     print(f"✓ Wrote {train_output}")
-    print(f"  Shape: {train_x.shape}, dtype: {train_x.dtype}")
+    print(f"  File size: {file_size:.2f} GB (compressed)")
+    print(f"  Write time: {save_time:.1f} seconds ({file_size / (save_time/60):.2f} GB/min)")
     
+    print(f"\nConcatenating validation batches...")
+    start_time = time.time()
     val_x = np.concatenate(val_batches)
+    concat_time = time.time() - start_time
+    print(f"✓ Concatenation complete ({concat_time:.1f} seconds)")
+    print(f"  Validation array shape: {val_x.shape}, dtype: {val_x.dtype}")
+    print(f"  Memory size: {val_x.nbytes / (1024**3):.2f} GB")
+    
+    print(f"\nSaving validation data...")
+    print(f"  Writing to: {dfolder / 'eval_data.npz'}")
+    start_time = time.time()
     val_output = dfolder / "eval_data.npz"
     np.savez_compressed(val_output, data=val_x)
+    save_time = time.time() - start_time
+    file_size = val_output.stat().st_size / (1024**3)
     print(f"✓ Wrote {val_output}")
-    print(f"  Shape: {val_x.shape}, dtype: {val_x.dtype}")
+    print(f"  File size: {file_size:.2f} GB (compressed)")
+    print(f"  Write time: {save_time:.1f} seconds ({file_size / (save_time/60):.2f} GB/min)")
     
     print(f"\n{'='*60}")
     print("✓ Complete! Dataset ready for training.")
