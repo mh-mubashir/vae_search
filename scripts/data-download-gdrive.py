@@ -304,18 +304,31 @@ def main():
         # Extract zip file if needed (unless skipping extraction)
         zip_file = celeba_subfolder / "img_align_celeba.zip"
         img_folder = celeba_subfolder / "img_align_celeba"
-        if zip_file.exists() and not args.skip_extraction:
-            print("\nExtracting zip file...")
-            # Use system unzip by default (more memory efficient)
-            extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
-        elif args.skip_extraction:
-            print("\nSkipping extraction - torchvision will extract on-the-fly")
-        elif zip_file.exists():
+        
+        if zip_file.exists():
             # Check if already extracted
-            if img_folder.exists() and len(list(img_folder.glob("*.jpg"))) > 100000:
-                print(f"\n✓ Images already extracted ({len(list(img_folder.glob('*.jpg')))} files)")
-            else:
-                print(f"\n⚠ Zip file exists but not extracted. Extraction may be needed.")
+            if img_folder.exists():
+                existing_count = len(list(img_folder.glob("*.jpg")))
+                if existing_count > 200000:
+                    print(f"\n✓ Images already extracted ({existing_count} files)")
+                elif existing_count > 0:
+                    print(f"\n⚠ Partial extraction found ({existing_count} files)")
+                    print(f"  Run this separately to complete extraction:")
+                    print(f"  python scripts/extract_celeba.py {zip_file} -o {img_folder}")
+                    if not args.skip_extraction:
+                        print(f"\n  Attempting to continue extraction...")
+                        extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
+                else:
+                    if not args.skip_extraction:
+                        print("\nExtracting zip file...")
+                        print("  (This may take 10-20 minutes. If killed, run separately:)")
+                        print(f"  python scripts/extract_celeba.py {zip_file} -o {img_folder}")
+                        extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
+                    else:
+                        print(f"\n⚠ Zip file exists but not extracted.")
+                        print(f"  Extract manually: python scripts/extract_celeba.py {zip_file} -o {img_folder}")
+        else:
+            print(f"\n⚠ Zip file not found at {zip_file}")
     else:
         print("Skipping download (--skip-download flag set)")
         print(f"Expected files in: {celeba_subfolder}")
