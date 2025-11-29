@@ -303,7 +303,7 @@ def main():
         
         # Extract zip file if needed (unless skipping extraction)
         zip_file = celeba_subfolder / "img_align_celeba.zip"
-        img_folder = celeba_subfolder / "img_align_celeba"
+        img_folder = celeba_subfolder / "img_align_celeba" / "img_align_celeba"
         
         if zip_file.exists():
             # Check if already extracted
