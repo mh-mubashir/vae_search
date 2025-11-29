@@ -155,6 +155,8 @@ my_models/
 *.ckpt
 checkpoints/
 models/
+# Exception: Don't ignore pythae package models directory
+!pythae/**/models/
 *.pkl
 *.pickle
 
