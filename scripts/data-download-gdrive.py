@@ -16,6 +16,7 @@ from torchvision.transforms import PILToTensor
 from tqdm import tqdm
 import zipfile
 import shutil
+import subprocess
 
 try:
     import gdown
@@ -89,32 +90,96 @@ def download_gdrive_folder(folder_url, output_dir, file_mapping=None):
     return True
 
 
-def extract_zip_if_needed(zip_path, extract_to):
-    """Extract zip file if it exists and hasn't been extracted."""
+def extract_zip_if_needed(zip_path, extract_to, use_system_unzip=True):
+    """Extract zip file if it exists and hasn't been extracted. Supports resume."""
     zip_path = Path(zip_path)
     extract_to = Path(extract_to)
     
     if not zip_path.exists():
         return False
     
-    # Check if already extracted
-    if extract_to.exists() and len(list(extract_to.glob("*.jpg"))) > 100000:
-        print(f"  Images already extracted in {extract_to}")
+    extract_to.mkdir(parents=True, exist_ok=True)
+    
+    # Check if already fully extracted
+    existing_files = set(f.name for f in extract_to.glob("*.jpg"))
+    if len(existing_files) > 200000:  # CelebA has ~202k images
+        print(f"  ✓ Images already extracted ({len(existing_files)} files found)")
         return True
     
     print(f"  Extracting {zip_path.name} to {extract_to}...")
-    extract_to.mkdir(parents=True, exist_ok=True)
+    if len(existing_files) > 0:
+        print(f"  Resuming extraction ({len(existing_files)} files already exist)...")
     
+    # Try system unzip first (more memory efficient)
+    if use_system_unzip:
+        unzip_cmd = shutil.which("unzip")
+        if unzip_cmd:
+            try:
+                print("  Using system unzip (more memory efficient)...")
+                # Use unzip with -u (update) flag to skip existing files
+                result = subprocess.run(
+                    [unzip_cmd, "-u", "-q", str(zip_path), "-d", str(extract_to)],
+                    capture_output=True,
+                    text=True,
+                    timeout=3600  # 1 hour timeout
+                )
+                if result.returncode == 0:
+                    final_count = len(list(extract_to.glob("*.jpg")))
+                    print(f"  ✓ Extraction complete ({final_count} files)")
+                    return True
+                else:
+                    print(f"  System unzip failed, falling back to Python zipfile...")
+                    print(f"  Error: {result.stderr}")
+            except subprocess.TimeoutExpired:
+                print(f"  System unzip timed out, falling back to Python zipfile...")
+            except Exception as e:
+                print(f"  System unzip failed: {e}, falling back to Python zipfile...")
+    
+    # Fallback to Python zipfile (supports resume)
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # Extract with progress bar
+            # Get all members
             members = zip_ref.namelist()
-            for member in tqdm(members, desc="Extracting"):
-                zip_ref.extract(member, extract_to)
-        print(f"  ✓ Extraction complete")
-        return True
+            total = len(members)
+            
+            # Filter out already extracted files
+            members_to_extract = [
+                m for m in members 
+                if Path(extract_to / m).name not in existing_files
+            ]
+            
+            if len(members_to_extract) == 0:
+                print(f"  ✓ All files already extracted")
+                return True
+            
+            print(f"  Extracting {len(members_to_extract)}/{total} remaining files...")
+            
+            # Extract files one by one (memory efficient)
+            extracted_count = 0
+            for member in tqdm(members_to_extract, desc="Extracting", unit="file"):
+                try:
+                    # Extract single file
+                    zip_ref.extract(member, extract_to)
+                    extracted_count += 1
+                    
+                    # Flush to disk periodically
+                    if extracted_count % 1000 == 0:
+                        import gc
+                        gc.collect()
+                        
+                except Exception as e:
+                    print(f"\n  Warning: Failed to extract {member}: {e}")
+                    continue
+            
+            print(f"  ✓ Extraction complete ({extracted_count} files extracted)")
+            return True
+            
+    except KeyboardInterrupt:
+        print(f"\n  Extraction interrupted. Progress saved. Run again to resume.")
+        return False
     except Exception as e:
         print(f"  ✗ Error extracting: {e}")
+        print(f"  Partial extraction may be saved. Run again to resume.")
         return False
 
 
@@ -179,6 +244,12 @@ def main():
         help="Skip download, assume files already exist in celeba folder"
     )
     
+    parser.add_argument(
+        "--skip-extraction",
+        action="store_true",
+        help="Skip zip extraction. Let torchvision extract on-the-fly (more memory efficient)"
+    )
+    
     args = parser.parse_args()
     
     # Check for GPU availability
@@ -230,11 +301,21 @@ def main():
             print("  3. Download files manually and use --skip-download")
             return 1
         
-        # Extract zip file if needed
+        # Extract zip file if needed (unless skipping extraction)
         zip_file = celeba_subfolder / "img_align_celeba.zip"
         img_folder = celeba_subfolder / "img_align_celeba"
-        if zip_file.exists():
-            extract_zip_if_needed(zip_file, img_folder)
+        if zip_file.exists() and not args.skip_extraction:
+            print("\nExtracting zip file...")
+            # Use system unzip by default (more memory efficient)
+            extract_zip_if_needed(zip_file, img_folder, use_system_unzip=True)
+        elif args.skip_extraction:
+            print("\nSkipping extraction - torchvision will extract on-the-fly")
+        elif zip_file.exists():
+            # Check if already extracted
+            if img_folder.exists() and len(list(img_folder.glob("*.jpg"))) > 100000:
+                print(f"\n✓ Images already extracted ({len(list(img_folder.glob('*.jpg')))} files)")
+            else:
+                print(f"\n⚠ Zip file exists but not extracted. Extraction may be needed.")
     else:
         print("Skipping download (--skip-download flag set)")
         print(f"Expected files in: {celeba_subfolder}")
