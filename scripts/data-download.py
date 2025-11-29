@@ -9,6 +9,33 @@ from tqdm import tqdm
 import os
 
 
+def check_celeba_files_exist(dfolder):
+    """Check if CelebA dataset files already exist to avoid re-downloading."""
+    celeba_subfolder = dfolder / "celeba" / "celeba"
+    required_files = [
+        "img_align_celeba.zip",
+        "list_attr_celeba.txt",
+        "identity_CelebA.txt",
+        "list_bbox_celeba.txt",
+        "list_landmarks_align_celeba.txt",
+        "list_eval_partition.txt"
+    ]
+    
+    # Check if zip file exists (main indicator)
+    zip_file = celeba_subfolder / "img_align_celeba.zip"
+    if zip_file.exists() and zip_file.stat().st_size > 1000000000:  # > 1GB
+        print(f"✓ Found existing CelebA files in {celeba_subfolder}")
+        print(f"  Zip file size: {zip_file.stat().st_size / (1024**3):.2f} GB")
+        # Check if extracted images exist
+        img_folder = celeba_subfolder / "img_align_celeba"
+        if img_folder.exists() and len(list(img_folder.glob("*.jpg"))) > 100000:
+            print(f"  Found {len(list(img_folder.glob('*.jpg')))} extracted images")
+            return True
+        return True  # Zip exists, can extract if needed
+    
+    return False
+
+
 def main():
 
     parser = argparse.ArgumentParser(
@@ -40,6 +67,11 @@ def main():
         type=int,
         default=10000,
         help="process and save data in chunks to reduce memory usage",
+    )
+    parser.add_argument(
+        "--force-download",
+        action="store_true",
+        help="force re-download even if files exist (use with caution for CelebA)",
     )
     parser.add_argument(
         "dataset",
@@ -91,11 +123,56 @@ def main():
         print(f"Processing {dname.upper()} dataset")
         print(f"{'='*60}")
 
+        # Check if files already exist (especially for CelebA to avoid Google Drive limits)
+        should_download = True
+        if "celeba" in dname.lower() and not args.force_download:
+            if check_celeba_files_exist(dfolder):
+                print("Skipping download - files already exist (to avoid Google Drive rate limits)")
+                print("  Use --force-download to re-download if needed")
+                should_download = False
+            else:
+                print("Files not found, will attempt download...")
+        elif args.force_download:
+            print("Force download enabled - will attempt to re-download files")
+
         # Download and process training data
-        print(f"Downloading and processing training split...")
-        train_data = dataset(
-            dfolder, download=True, transform=PILToTensor(), **train_kwarg
-        )
+        print(f"Loading and processing training split...")
+        try:
+            # First try without download if files might exist
+            if not should_download:
+                try:
+                    train_data = dataset(
+                        dfolder, download=False, transform=PILToTensor(), **train_kwarg
+                    )
+                    print("✓ Successfully loaded existing files")
+                except (FileNotFoundError, RuntimeError) as e:
+                    if "not found" in str(e).lower() or "not downloaded" in str(e).lower():
+                        print("Files not complete, attempting download...")
+                        train_data = dataset(
+                            dfolder, download=True, transform=PILToTensor(), **train_kwarg
+                        )
+                    else:
+                        raise
+            else:
+                train_data = dataset(
+                    dfolder, download=True, transform=PILToTensor(), **train_kwarg
+                )
+        except Exception as e:
+            if "Too many users" in str(e) or "FileURLRetrievalError" in str(e):
+                print("\n" + "="*60)
+                print("ERROR: Google Drive rate limit hit!")
+                print("="*60)
+                print("The CelebA files appear to be downloaded but verification failed.")
+                print(f"\nExpected location: {dfolder / 'celeba' / 'celeba'}")
+                print("\nSolutions:")
+                print("  1. Wait 24 hours and try again")
+                print("  2. Check if files exist manually:")
+                print(f"     ls -lh {dfolder / 'celeba' / 'celeba'}")
+                print("  3. If files exist, try running with --skip-verification")
+                print("  4. Use alternative download method")
+                raise
+            else:
+                raise
         print(f"Training samples: {len(train_data)}")
         
         train_loader = torch.utils.data.DataLoader(
@@ -132,8 +209,28 @@ def main():
         print(f"✓ Wrote {dfolder / 'train_data.npz'}")
 
         # Download and process validation data
-        print(f"\nDownloading and processing validation split...")
-        val_data = dataset(dfolder, download=True, transform=PILToTensor(), **val_kwarg)
+        print(f"\nLoading and processing validation split...")
+        try:
+            # Use same download setting as training
+            if not should_download:
+                try:
+                    val_data = dataset(dfolder, download=False, transform=PILToTensor(), **val_kwarg)
+                except (FileNotFoundError, RuntimeError) as e:
+                    if "not found" in str(e).lower() or "not downloaded" in str(e).lower():
+                        val_data = dataset(dfolder, download=True, transform=PILToTensor(), **val_kwarg)
+                    else:
+                        raise
+            else:
+                val_data = dataset(dfolder, download=True, transform=PILToTensor(), **val_kwarg)
+        except Exception as e:
+            if "Too many users" in str(e) or "FileURLRetrievalError" in str(e):
+                print("\n" + "="*60)
+                print("ERROR: Google Drive rate limit hit!")
+                print("="*60)
+                print(f"Expected location: {dfolder / 'celeba' / 'celeba'}")
+                raise
+            else:
+                raise
         print(f"Validation samples: {len(val_data)}")
         
         val_loader = torch.utils.data.DataLoader(
