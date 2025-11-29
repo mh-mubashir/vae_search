@@ -1,0 +1,21 @@
+{
+  "name": "CoupledOptimizerAdversarialTrainerConfig",
+  "output_dir": "my_models_on_celeba",
+  "per_device_train_batch_size": 32,
+  "per_device_eval_batch_size": 32,
+  "num_epochs": 50,
+  "encoder_learning_rate": 0.0001,
+  "decoder_learning_rate": 0.0001,
+  "discriminator_learning_rate": 0.0001,
+  "encoder_optimizer_cls": "Adam",
+  "decoder_optimizer_cls": "Adam",
+  "discriminator_optimizer_cls": "Adam",
+  "steps_saving": 5,
+  "steps_predict": 5,
+  "train_dataloader_num_workers": 4,
+  "eval_dataloader_num_workers": 4,
+  "no_cuda": false,
+  "keep_best_on_train": false
+}
+
+
