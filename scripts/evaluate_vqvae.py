@@ -13,33 +13,46 @@ import numpy as np
 import lpips
 import piq
 import wandb
-from torchvision.datasets import CelebA
-from torchvision.transforms import Compose, CenterCrop, Resize, ToTensor
 from pythae.models import AutoModel
 from pythae.data.datasets import BaseDataset
 
 
-def load_eval_data(data_root="data", n_samples=10000):
-    """Load CelebA evaluation data."""
-    transform = Compose([
-        CenterCrop(178),
-        Resize((32, 32)),
-        ToTensor(),
-    ])
+def load_eval_data(data_root="data", dataset="celeba", n_samples=None):
+    """
+    Load evaluation data from .npz file (same format as training script).
     
-    celeba_eval = CelebA(
-        root=data_root,
-        split="valid",  # Use validation split for evaluation
-        download=False,
-        transform=transform
-    )
+    Args:
+        data_root: Root directory containing the dataset folder
+        dataset: Dataset name (default: "celeba")
+        n_samples: Number of samples to use (None = use all)
     
-    n_samples = min(n_samples, len(celeba_eval))
-    xs = []
-    for i in range(n_samples):
-        img, _ = celeba_eval[i]
-        xs.append(img)
-    x_eval = torch.stack(xs, dim=0)
+    Returns:
+        x_eval: torch.Tensor of shape [N, C, H, W] in range [0, 1]
+    """
+    # Get the script directory (same as training.py)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Construct path to eval_data.npz
+    eval_data_path = os.path.join(script_dir, data_root, dataset, "eval_data.npz")
+    
+    if not os.path.exists(eval_data_path):
+        raise FileNotFoundError(
+            f"Evaluation data not found at: {eval_data_path}\n"
+            f"Please ensure 'eval_data.npz' exists in 'data/{dataset}/' folder."
+        )
+    
+    # Load data (expected to be in range [0-255] with channel in first position)
+    eval_data = np.load(eval_data_path)["data"] / 255.0
+    
+    # Convert to torch tensor
+    x_eval = torch.from_numpy(eval_data).float()
+    
+    # Limit number of samples if specified
+    if n_samples is not None and n_samples < len(x_eval):
+        x_eval = x_eval[:n_samples]
+    
+    print(f"Loaded {len(x_eval)} evaluation samples from {eval_data_path}")
+    print(f"Data shape: {x_eval.shape}, Range: [{x_eval.min():.3f}, {x_eval.max():.3f}]")
     
     return x_eval
 
@@ -192,7 +205,13 @@ def main():
         "--data_root",
         type=str,
         default="data",
-        help="Root directory for CelebA dataset"
+        help="Root directory containing dataset folder"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="celeba",
+        help="Dataset name (default: celeba)"
     )
     parser.add_argument(
         "--n_eval_samples",
@@ -253,8 +272,11 @@ def main():
     
     # Load evaluation data
     print("Loading evaluation data...")
-    x_eval = load_eval_data(data_root=args.data_root, n_samples=args.n_eval_samples)
-    print(f"Loaded {len(x_eval)} evaluation samples")
+    x_eval = load_eval_data(
+        data_root=args.data_root, 
+        dataset=args.dataset,
+        n_samples=args.n_eval_samples
+    )
     
     # Initialize wandb if requested
     if args.use_wandb:
@@ -264,6 +286,7 @@ def main():
             name=args.wandb_run_name or os.path.basename(args.checkpoint_path),
             config={
                 "checkpoint_path": args.checkpoint_path,
+                "dataset": args.dataset,
                 "n_eval_samples": args.n_eval_samples,
                 "n_gen_samples": args.n_gen_samples,
                 "batch_size": args.batch_size,
