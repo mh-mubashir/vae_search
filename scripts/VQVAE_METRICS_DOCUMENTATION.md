@@ -155,3 +155,4 @@ Input → Encoder → Embeddings → Quantize (find closest codebook entry) → 
 - BetaVAE Paper: [β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl)
 - PyTorch-VAE Implementation: [pythae library](https://github.com/clementchadebec/benchmark_VAE)
 
+
