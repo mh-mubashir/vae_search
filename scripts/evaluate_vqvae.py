@@ -302,12 +302,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-python evaluate_vqvae.py \
-    --checkpoint_path "/home/mubashir.m/ondemand/data/sys/dashboard/batch_connect/sys/desktop-native-courses/output/e6d95e33-bb4f-4913-a299-51074c8c526e/testing/vae_search/scripts/my_models_on_celeba/VQVAE_training_2025-11-29_21-31-53/checkpoint_epoch_17" \
-    --data_root "data" \
-    --n_eval_samples 10000 \
-    --n_gen_samples 64 \
-    --batch_size 64 \
-    --use_wandb \
-    --wandb_project "vqvae-evaluation"
