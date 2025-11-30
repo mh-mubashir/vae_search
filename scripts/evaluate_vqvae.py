@@ -66,17 +66,38 @@ def compute_recon_metrics_from_out(x, out, device):
         x: [B, C, H, W] ground-truth images in [0,1]
         out: model output with keys: recon_x, recon_loss, vq_loss, loss
         device: torch device
+    
+    Note: VQVAE uses MSE (not BCE) for reconstruction loss and VQ loss (not KL) for regularization.
+    Unlike BetaVAE which has:
+    - BCE: Binary cross-entropy reconstruction loss (optional, can use MSE instead)
+    - KL: Kullback-Leibler divergence between posterior q(z|x) and prior p(z)
+    VQVAE has:
+    - MSE: Mean squared error reconstruction loss (hardcoded, no BCE option)
+    - VQ_Loss: Vector quantization loss (commitment + quantization loss, replaces KL)
     """
     x_hat = out.recon_x  # [B, C, H, W]
     
-    # MSE (reconstruction loss)
+    # MSE (reconstruction loss) - VQVAE always uses MSE, never BCE
     mse = F.mse_loss(x_hat, x, reduction="mean").item()
     
-    # VQ Loss (vector quantization loss)
+    # Optional: Compute BCE for comparison (even though VQVAE doesn't use it)
+    # This allows comparison with BetaVAE metrics
+    bce = F.binary_cross_entropy(
+        x_hat.clamp(0.0, 1.0).reshape(x.shape[0], -1),
+        x.reshape(x.shape[0], -1),
+        reduction="mean"
+    ).item()
+    
+    # VQ Loss (vector quantization loss) - replaces KL divergence in VQVAE
+    # This measures how well the codebook represents encoder outputs
     vq_loss = out.vq_loss.mean().item() if hasattr(out.vq_loss, 'mean') else out.vq_loss.item()
     
     # Total Loss
     total_loss = out.loss.mean().item() if hasattr(out.loss, 'mean') else out.loss.item()
+    
+    # Note: KL divergence doesn't exist for VQVAE since it's not a probabilistic model
+    # VQVAE uses deterministic encoding + vector quantization instead of
+    # probabilistic encoding (mu, log_var) + reparameterization trick
     
     # Perceptual metrics expect 3 channels
     if x.shape[1] == 1:
@@ -96,11 +117,13 @@ def compute_recon_metrics_from_out(x, out, device):
     
     return {
         "MSE": mse,
-        "VQ_Loss": vq_loss,
+        "BCE": bce,  # Computed for comparison, though VQVAE doesn't use it
+        "VQ_Loss": vq_loss,  # Replaces KL divergence in VQVAE
         "Total_Loss": total_loss,
         "LPIPS": lp,
         "SSIM": ssim_val,
         "GMSD": gmsd_val,
+        # Note: KL divergence is not applicable to VQVAE (no probabilistic latent space)
     }
 
 
