@@ -433,5 +433,5 @@ If you use this codebase in your research, please cite:
 ## Contact
 
 For questions or collaborations, please contact:
-- Hamza Mubashir: [email]
-- Alexsei Krotov: [email]
+- Hamza Mubashir: hamzamubashir.ai@gmail.com
+- Alexsei Krotov: bronze.eye@gmail.com
