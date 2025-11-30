@@ -47,10 +47,11 @@ vae_search/
 │   ├── src/pythae/                      # Core library source code
 │   └── scripts/                         # Utility scripts (distributed training, etc.)
 │
-├── VQVAE_METRICS_DOCUMENTATION.md      # Comprehensive VQVAE metrics documentation
-├── VAEGAN_METRICS_DOCUMENTATION.md      # Comprehensive VAEGAN metrics documentation
-├── PRETRAINED_MODELS_INFO.md           # Information about pretrained models
-├── ENVIRONMENT_SETUP.md                 # Environment setup instructions
+├── DOCUMENTATION.md                     # Comprehensive technical documentation
+│                                         # (Environment setup, dataset preparation,
+│                                         #  pretrained models, evaluation metrics,
+│                                         #  model architecture comparisons)
+├── README.md                            # This file - project overview and usage
 └── requirements.txt                    # Python package dependencies
 ```
 
@@ -184,23 +185,45 @@ Convenient shell scripts that handle:
 ./training_shell_scripts/train_vqvae_celeba_gpu.sh
 ```
 
-### Documentation Files
+### Documentation
 
-#### `VQVAE_METRICS_DOCUMENTATION.md`
-Comprehensive documentation explaining:
-- Why VQVAE doesn't use BCE (hardcoded to MSE)
-- Why KL divergence doesn't apply (deterministic vs probabilistic)
-- How VQ Loss replaces KL as regularization
-- Architectural differences from BetaVAE
-- Metric interpretation guide
+#### `DOCUMENTATION.md`
+Comprehensive technical documentation covering all aspects of the project:
 
-#### `VAEGAN_METRICS_DOCUMENTATION.md`
-Detailed documentation covering:
-- Feature-space reconstruction loss (vs pixel-wise)
-- Adversarial training components
-- Loss component breakdown (encoder, decoder, discriminator)
-- Comparison with BetaVAE and VQVAE
-- Training dynamics and coupled optimizers
+**Environment Setup:**
+- HPC cluster (Explorer) configuration
+- GPU access and module loading
+- Environment activation and troubleshooting
+
+**Dataset Preparation:**
+- CelebA dataset download from Google Drive
+- Data processing and validation
+- Expected output format and structure
+
+**Pretrained Models:**
+- Available models on Hugging Face Hub
+- Models that require training from scratch (VQVAE, VAEGAN)
+- How to load and use pretrained models
+
+**Evaluation Metrics:**
+- **VQVAE Metrics**: MSE, VQ Loss, Total Loss, perceptual metrics (LPIPS, SSIM, GMSD)
+  - Explanation of why BCE and KL divergence don't apply to VQVAE
+  - Architectural differences (deterministic vs probabilistic)
+- **VAEGAN Metrics**: Feature-space reconstruction loss, KL divergence, ELBO
+  - Adversarial components (Encoder Loss, Decoder Loss, Discriminator Loss)
+  - Training dynamics with coupled optimizers
+- **Perceptual Metrics**: LPIPS, SSIM, GMSD interpretation across all models
+
+**Model Architecture Comparison:**
+- Side-by-side comparison of BetaVAE, VQVAE, and VAEGAN
+- Architectural diagrams and loss function breakdowns
+- Model selection guide based on use cases
+- Metric interpretation guidelines
+
+**References:**
+- Original research papers
+- Implementation libraries
+- Metrics libraries and tools
 
 ## Research Methodology
 
