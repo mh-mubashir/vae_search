@@ -5,7 +5,7 @@ This repository serves as the project repository for the **Machine Learning for 
 ## Team Members
 
 - **Hamza Muabshir**
-- **Alexsei Krotov**
+- **Aleksei Krotov**
 
 ## Project Overview
 
