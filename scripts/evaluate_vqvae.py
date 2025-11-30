@@ -153,33 +153,81 @@ def eval_generation_self_recon_metrics(model, num_samples=64, seed=999, device=N
     num_embeddings = codebook.shape[0]
     embedding_dim = codebook.shape[1]
     
-    # Step 1: Determine spatial dimensions by encoding a dummy image
+    # Step 1: Determine the shape that decoder expects by running a forward pass
     dummy_input = torch.randn(1, *model.model_config.input_dim, device=device)
     with torch.no_grad():
+        # Run full forward pass to see what shape the decoder receives
         encoder_out = model.encoder(dummy_input)
-        embeddings_shape = encoder_out.embedding.shape
+        embeddings = encoder_out.embedding
+        
+        # Simulate the forward pass logic exactly as in VQVAE.forward()
+        reshape_for_decoding = False
+        if len(embeddings.shape) == 2:
+            embeddings_reshaped = embeddings.reshape(embeddings.shape[0], 1, 1, -1)
+            reshape_for_decoding = True
+        else:
+            embeddings_reshaped = embeddings
+        
+        embeddings_permuted = embeddings_reshaped.permute(0, 2, 3, 1)
+        
+        # Get quantizer output shape
+        quantizer_output = model.quantizer(embeddings_permuted, uses_ddp=False)
+        quantized_embed = quantizer_output.quantized_vector
+        
+        if reshape_for_decoding:
+            quantized_embed = quantized_embed.reshape(embeddings.shape[0], -1)
+        
+        decoder_input_shape = quantized_embed.shape[1:]  # Shape without batch dimension
+        decoder_input_size = quantized_embed.shape[1]
+        
+        print(f"Debug: encoder output shape: {embeddings.shape}")
+        print(f"Debug: quantized_embed shape before decoder: {quantized_embed.shape}")
+        print(f"Debug: decoder_input_size: {decoder_input_size}, embedding_dim: {embedding_dim}")
     
-    # Step 2: Sample random quantized embeddings matching the encoder output shape
-    if len(embeddings_shape) == 2:
-        # Flatten case: encoder outputs [B, latent_dim]
-        # Sample random embeddings and reshape to match decoder input
+    # Step 2: Sample random quantized embeddings matching the decoder input shape
+    # The decoder_input_size tells us how many elements we need
+    # Calculate how many spatial locations we need
+    num_spatial_locations = decoder_input_size // embedding_dim
+    
+    if num_spatial_locations == 1:
+        # Simple case: one embedding per sample (flattened encoder output)
         random_indices = torch.randint(0, num_embeddings, (num_samples,), device=device)
         z_quant = codebook[random_indices]  # [num_samples, embedding_dim]
-        # Decoder expects flattened input
+        
+        # Verify size matches
+        if z_quant.shape[1] != decoder_input_size:
+            raise ValueError(
+                f"Size mismatch: decoder expects {decoder_input_size}, "
+                f"but got {z_quant.shape[1]} from single embedding"
+            )
     else:
-        # Spatial case: encoder outputs [B, C, H, W] 
-        h, w = embeddings_shape[2], embeddings_shape[3]
+        # Spatial case: need multiple embeddings per sample
         # Sample random indices for each spatial location
-        num_spatial = h * w
         random_indices = torch.randint(0, num_embeddings, 
-                                      (num_samples, num_spatial), device=device)
-        # Get embeddings: [num_samples, num_spatial, embedding_dim]
+                                     (num_samples, num_spatial_locations), device=device)
+        # Get embeddings: [num_samples, num_spatial_locations, embedding_dim]
         z_spatial = codebook[random_indices]
-        # Reshape to match encoder output: [num_samples, embedding_dim, h, w]
-        z_spatial = z_spatial.reshape(num_samples, h, w, embedding_dim)
-        z_spatial = z_spatial.permute(0, 3, 1, 2)  # [num_samples, embedding_dim, h, w]
-        # Flatten for decoder (matching the forward pass logic)
-        z_quant = z_spatial.reshape(num_samples, -1)
+        
+        # Reshape to match what decoder expects
+        # The quantizer outputs [B, embedding_dim, H, W] which gets flattened to [B, embedding_dim * H * W]
+        # So we need to reshape to [B, embedding_dim, H, W] then flatten
+        # Try to infer spatial dimensions (assume square if possible)
+        h = w = int(np.sqrt(num_spatial_locations))
+        if h * w == num_spatial_locations:
+            # Perfect square
+            z_spatial = z_spatial.reshape(num_samples, h, w, embedding_dim)
+            z_spatial = z_spatial.permute(0, 3, 1, 2)  # [num_samples, embedding_dim, h, w]
+            z_quant = z_spatial.reshape(num_samples, -1)  # [num_samples, decoder_input_size]
+        else:
+            # Not a perfect square, just flatten directly
+            z_quant = z_spatial.reshape(num_samples, -1)  # [num_samples, decoder_input_size]
+        
+        # Verify size matches
+        if z_quant.shape[1] != decoder_input_size:
+            raise ValueError(
+                f"Size mismatch: decoder expects {decoder_input_size}, "
+                f"but got {z_quant.shape[1]} from spatial embeddings"
+            )
     
     # Step 3: Decode
     dec_out = model.decoder(z_quant)
