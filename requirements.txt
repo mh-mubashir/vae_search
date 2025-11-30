@@ -1,0 +1,36 @@
+# Core dependencies
+torch>=1.10.1
+torchvision>=0.11.0
+numpy>=1.19.0
+
+# PyTorch VAE library (pythae)
+# Note: Install pythae from the pythae/ folder using: pip install -e pythae/
+cloudpickle>=2.1.0
+pydantic>=2.0
+scikit-learn
+scipy>=1.7.1
+tqdm
+typing_extensions
+
+# Image processing and quality metrics
+Pillow>=8.0.0
+lpips>=0.1.4
+piq>=0.8.0
+imageio
+
+# Experiment tracking and model sharing
+wandb>=0.15.0
+huggingface-hub>=0.16.0
+
+# Data download utilities
+gdown>=4.6.0
+
+# Jupyter notebook support (for celebA_betavae.ipynb)
+jupyter>=1.0.0
+ipykernel>=6.0.0
+matplotlib>=3.5.0
+
+# Optional: For better performance
+# tensorboard>=2.8.0  # Alternative to wandb
+# tensorboardX>=2.5  # PyTorch tensorboard support
+

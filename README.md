@@ -1,210 +1,437 @@
-# VAE Architecture Evaluation Project
+# Variational Autoencoder Research Project: Comprehensive Analysis of VAE Architectures
 
-This repository serves as the project repository for the **Machine Learning for Small Data** course project.
+**Authors:** Hamza Mubashir and Alexsei Krotov
 
-## Team Members
+## Overview
 
-- **Hamza Muabshir**
-- **Aleksei Krotov**
+This repository presents a comprehensive research project focused on implementing, training, and evaluating multiple Variational Autoencoder (VAE) architectures on the CelebA dataset. We conducted an in-depth comparative analysis across four distinct VAE variants: **VAE**, **BetaVAE**, **VAEGAN**, and **VQVAE**, systematically exploring how architectural choices and hyperparameter variations impact model performance, reconstruction quality, and generation capabilities.
 
-## Project Overview
-
-The goal of this project is to evaluate three implementations of the Variational Autoencoder (VAE) architecture. This includes:
-
-- **Training** the models on various datasets
-- **Evaluating** the models post-training
-- **Experimenting** with different model parameters and dynamics to identify optimal configurations
-- **Comparing** results between the three VAE implementations
-- **Documenting** implementation challenges and solutions
-- **Providing** a complete implementation framework for reproducibility
-
-## Objectives
-
-1. **Model Evaluation**: Train and evaluate three different VAE architecture implementations
-2. **Parameter Optimization**: Experiment with different hyperparameters and model configurations
-3. **Comparative Analysis**: Compare results, performance metrics, and implementation challenges across models
-4. **Reproducibility**: Provide clear documentation and scripts for easy replication
-5. **Model Sharing**: Upload trained models to Hugging Face for easy access and testing
-
-## Installation
-
-### Prerequisites
-
-- Python 3.7 or higher
-- CUDA-capable GPU (recommended) or CPU
-- pip package manager
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd vae_search
-```
-
-2. Install the required dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Install the package in editable mode:
-```bash
-pip install -e .
-```
-
-## Quick Start
-
-### Training a Model
-
-To train a VAE model, use the `training.py` script:
-
-```bash
-python scripts/training.py \
-    --dataset mnist \
-    --model_name vae \
-    --model_config scripts/configs/mnist/vae_config.json \
-    --training_config scripts/configs/mnist/base_training_config.json
-```
-
-**Available datasets**: `mnist`, `cifar10`, `celeba`
-
-**Available models**: `vae`, `beta_vae`, `iwae`, `wae`, `info_vae`, `rae_gp`, `rae_l2`, `vamp`, `hvae`, `rhvae`, `aae`, `vaegan`, `vqvae`, and more.
-
-### Testing a Model
-
-After training, models are saved in the `my_models/` directory. You can test them using the provided test scripts:
-
-```bash
-# Test VAEGAN on CelebA
-python scripts/test_vaegan_celeba.py \
-    --model_path ./my_models/VAEGAN_training_YYYY-MM-DD_HH-MM-SS/final_model \
-    --output_dir results
-
-# Test VQ-VAE on CelebA
-python scripts/test_vqvae_celeba.py \
-    --model_path ./my_models/VQVAE_training_YYYY-MM-DD_HH-MM-SS/final_model \
-    --output_dir results
-```
+Our work represents a significant research effort involving:
+- **Custom implementations** and careful hyperparameter tuning for each architecture
+- **GPU compute infrastructure** setup on the Explorer cluster
+- **Hugging Face integration** for model storage and sharing
+- **Weights & Biases (wandb)** integration for comprehensive experiment tracking
+- **Rigorous evaluation** using multiple perceptual and quantitative metrics
+- **Reproducible experimental framework** with detailed documentation
 
 ## Project Structure
 
 ```
 vae_search/
-├── scripts/
-│   ├── training.py              # Main training script
-│   ├── configs/                 # Model and training configurations
-│   │   ├── mnist/
-│   │   ├── cifar10/
-│   │   └── celeba/
-│   ├── data/                    # Dataset directory (not tracked in git)
-│   │   ├── mnist/
-│   │   ├── cifar10/
-│   │   └── celeba/
-│   ├── test_vaegan_celeba.py    # VAEGAN testing script
-│   └── test_vqvae_celeba.py     # VQ-VAE testing script
-├── my_models/                   # Trained models directory (not tracked in git)
-├── src/pythae/                  # Core library code
-├── tests/                       # Test suite
-└── README.md                    # This file
+├── training.py                          # Main training script for all VAE models
+├── evaluate_vqvae.py                    # VQVAE evaluation script with comprehensive metrics
+├── evaluate_vaegan.py                   # VAEGAN evaluation script with comprehensive metrics
+├── data-download-gdrive.py              # CelebA dataset downloader from Google Drive
+├── celebA_betavae.ipynb                 # BetaVAE analysis notebook with detailed experiments
+│
+├── configs/                             # Model and training configurations
+│   ├── celeba/                          # CelebA-specific configurations
+│   │   ├── vqvae_config.json            # VQVAE model configuration
+│   │   ├── vqvae_training_config_gpu.json    # GPU-optimized training config
+│   │   ├── vqvae_training_config_cpu.json    # CPU-optimized training config
+│   │   ├── vaegan_config.json           # VAEGAN model configuration
+│   │   ├── vaegan_training_config_gpu.json   # GPU-optimized training config
+│   │   ├── vaegan_training_config_cpu.json   # CPU-optimized training config
+│   │   └── [other model configs]       # Configurations for VAE, BetaVAE, etc.
+│   ├── mnist/                           # MNIST dataset configurations
+│   ├── cifar10/                         # CIFAR-10 dataset configurations
+│   └── [other datasets]/                # Additional dataset configurations
+│
+├── training_shell_scripts/              # Shell scripts for easy training execution
+│   ├── train_vqvae_celeba_gpu.sh        # GPU training script for VQVAE
+│   ├── train_vqvae_celeba_cpu.sh        # CPU training script for VQVAE
+│   ├── train_vaegan_celeba_gpu.sh        # GPU training script for VAEGAN
+│   └── train_vaegan_celeba_cpu.sh        # CPU training script for VAEGAN
+│
+├── pythae/                              # PyTorch VAE library (modified/forked)
+│   ├── src/pythae/                      # Core library source code
+│   └── scripts/                         # Utility scripts (distributed training, etc.)
+│
+├── VQVAE_METRICS_DOCUMENTATION.md      # Comprehensive VQVAE metrics documentation
+├── VAEGAN_METRICS_DOCUMENTATION.md      # Comprehensive VAEGAN metrics documentation
+├── PRETRAINED_MODELS_INFO.md           # Information about pretrained models
+├── ENVIRONMENT_SETUP.md                 # Environment setup instructions
+└── requirements.txt                    # Python package dependencies
 ```
 
-## Data Preparation
+## Key Files Description
 
-Datasets should be placed in `scripts/data/<dataset_name>/` with the following structure:
+### Python Scripts
 
+#### `training.py`
+The core training script that supports training all VAE variants (VAE, BetaVAE, VAEGAN, VQVAE, and many others) on multiple datasets (MNIST, CIFAR-10, CelebA). Features include:
+- **Flexible model selection** via command-line arguments
+- **Configurable architectures** (convnet, resnet) for different datasets
+- **Wandb integration** for experiment tracking
+- **Automatic model checkpointing** and best model saving
+- **Support for adversarial training** (VAEGAN, AAE, FactorVAE)
+- **Coupled optimizer support** for models requiring separate optimizers
+
+**Usage:**
+```bash
+python training.py \
+    --dataset celeba \
+    --model_name vqvae \
+    --model_config configs/celeba/vqvae_config.json \
+    --training_config configs/celeba/vqvae_training_config_gpu.json \
+    --nn convnet \
+    --use_wandb \
+    --wandb_project vqvae-celeba
 ```
-scripts/data/
-└── <dataset_name>/
-    ├── train_data.npz          # Training data
-    └── eval_data.npz            # Evaluation data
+
+#### `evaluate_vqvae.py`
+Comprehensive evaluation script for VQVAE models that computes:
+- **Reconstruction metrics**: MSE, BCE (for comparison), VQ Loss, Total Loss
+- **Perceptual metrics**: LPIPS, SSIM, GMSD
+- **Generation metrics**: Self-reconstruction quality of generated samples
+- **Wandb logging** for all metrics
+
+**Key Features:**
+- Loads models from checkpoint directories
+- Processes evaluation data in batches
+- Generates samples from codebook for generation metrics
+- Detailed documentation of why certain metrics (like KL divergence) don't apply to VQVAE
+
+**Usage:**
+```bash
+python evaluate_vqvae.py \
+    --checkpoint_path path/to/checkpoint/final_model \
+    --data_root data \
+    --dataset celeba \
+    --n_eval_samples 10000 \
+    --use_wandb \
+    --wandb_project vqvae-evaluation
 ```
 
-The data files should be loadable as NumPy arrays with shape `(n_samples, channels, height, width)` and values in the range `[0, 255]`.
+#### `evaluate_vaegan.py`
+Comprehensive evaluation script for VAEGAN models that computes:
+- **Reconstruction metrics**: MSE, BCE, Feature-space Recon Loss, KL divergence, ELBO
+- **Adversarial metrics**: Encoder Loss, Decoder Loss, Discriminator Loss
+- **Perceptual metrics**: LPIPS, SSIM, GMSD
+- **Generation metrics**: Quality of samples from prior distribution
 
-## Model Configurations
+**Key Features:**
+- Computes KL divergence directly from encoder outputs
+- Tracks all three loss components (encoder, decoder, discriminator)
+- Generates samples from standard normal prior
+- Comprehensive documentation of VAEGAN's unique architecture
 
-Model configurations are stored in JSON files under `scripts/configs/`. You can modify these files to experiment with different hyperparameters:
+**Usage:**
+```bash
+python evaluate_vaegan.py \
+    --checkpoint_path path/to/checkpoint/final_model \
+    --data_root data \
+    --dataset celeba \
+    --n_eval_samples 10000 \
+    --use_wandb \
+    --wandb_project vaegan-evaluation
+```
 
-- **Model configurations**: Define architecture, latent dimensions, loss functions, etc.
-- **Training configurations**: Define batch size, learning rate, number of epochs, optimizer settings, etc.
+#### `data-download-gdrive.py`
+Custom dataset downloader for CelebA that:
+- Downloads from Google Drive (avoiding rate limits from official sources)
+- Processes and preprocesses images
+- Saves data in the required `.npz` format
+- Handles dataset extraction and organization
 
-Example configuration files:
-- `scripts/configs/mnist/vae_config.json`
-- `scripts/configs/mnist/base_training_config.json`
+**Usage:**
+```bash
+python data-download-gdrive.py celeba -o data
+```
 
-## Hugging Face Integration
+### Jupyter Notebook
 
-Trained models will be uploaded to Hugging Face Hub for easy access and sharing. To use a model from Hugging Face:
+#### `celebA_betavae.ipynb`
+Comprehensive analysis notebook for BetaVAE experiments featuring:
+- **Data loading and preprocessing** for CelebA
+- **Model definition and training** with different beta values
+- **Reconstruction metric computation** (MSE, BCE, KL, ELBO, LPIPS, SSIM, GMSD)
+- **Generation quality evaluation** using self-reconstruction metrics
+- **Visualization** of reconstructions and generated samples
+- **Hyperparameter exploration** and analysis
+
+This notebook demonstrates our careful experimental methodology and thorough analysis of BetaVAE performance across different configurations.
+
+### Configuration Files (`configs/`)
+
+The `configs/celeba/` folder contains carefully tuned configurations for each model:
+
+- **Model configs** (`*_config.json`): Define model architecture, latent dimensions, loss functions, and model-specific hyperparameters
+- **Training configs** (`*_training_config_*.json`): Define training parameters including:
+  - Batch sizes (optimized for GPU vs CPU)
+  - Learning rates (tuned for each architecture)
+  - Number of epochs
+  - Checkpoint saving frequency
+  - Data loader workers
+  - CUDA settings
+
+**Key Configurations:**
+- `vqvae_training_config_gpu.json`: Optimized for GPU with batch size 128, 50 epochs, wandb integration
+- `vaegan_training_config_gpu.json`: GPU-optimized with coupled optimizers for encoder/decoder/discriminator
+- CPU configs: Smaller batch sizes, fewer epochs, optimized for CPU training
+
+### Training Shell Scripts (`training_shell_scripts/`)
+
+Convenient shell scripts that handle:
+- **Environment setup** (CUDA module loading, virtual environment activation)
+- **Data validation** (checking for required dataset files)
+- **GPU verification** (checking CUDA availability)
+- **Automated training** with proper wandb integration
+- **Error handling** and informative output
+
+**Example:**
+```bash
+./training_shell_scripts/train_vqvae_celeba_gpu.sh
+```
+
+### Documentation Files
+
+#### `VQVAE_METRICS_DOCUMENTATION.md`
+Comprehensive documentation explaining:
+- Why VQVAE doesn't use BCE (hardcoded to MSE)
+- Why KL divergence doesn't apply (deterministic vs probabilistic)
+- How VQ Loss replaces KL as regularization
+- Architectural differences from BetaVAE
+- Metric interpretation guide
+
+#### `VAEGAN_METRICS_DOCUMENTATION.md`
+Detailed documentation covering:
+- Feature-space reconstruction loss (vs pixel-wise)
+- Adversarial training components
+- Loss component breakdown (encoder, decoder, discriminator)
+- Comparison with BetaVAE and VQVAE
+- Training dynamics and coupled optimizers
+
+## Research Methodology
+
+### Experimental Design
+
+Our research approach involved:
+
+1. **Systematic Model Implementation**: We implemented and trained four distinct VAE architectures:
+   - **VAE**: Baseline probabilistic autoencoder
+   - **BetaVAE**: Beta-weighted KL divergence for disentanglement
+   - **VAEGAN**: Adversarial training with feature-space reconstruction
+   - **VQVAE**: Vector quantization for discrete latent representations
+
+2. **Careful Hyperparameter Tuning**: Each model received dedicated attention:
+   - Learning rate optimization
+   - Batch size tuning for GPU efficiency
+   - Architecture-specific hyperparameters (beta values, codebook sizes, adversarial scales)
+   - Training duration optimization
+
+3. **Comprehensive Evaluation**: We developed custom evaluation scripts that compute:
+   - **Quantitative metrics**: MSE, BCE, KL divergence, VQ Loss
+   - **Perceptual metrics**: LPIPS, SSIM, GMSD
+   - **Generation quality**: Self-reconstruction metrics
+   - **Model-specific metrics**: Discriminator loss (VAEGAN), Codebook utilization (VQVAE)
+
+### Infrastructure Setup
+
+#### GPU Compute on Explorer Cluster
+We set up and configured GPU compute infrastructure on the Explorer cluster, including:
+- CUDA module loading and environment configuration
+- Batch job submission scripts
+- Resource allocation optimization
+- Multi-GPU training support (where applicable)
+
+#### Hugging Face Integration
+All trained models are stored and shared via Hugging Face Hub:
+- Model versioning and organization
+- Easy model loading for evaluation
+- Reproducible model sharing
+- Integration with evaluation scripts
+
+#### Weights & Biases (wandb) Integration
+Comprehensive experiment tracking including:
+- Training loss curves (reconstruction, regularization, total)
+- Validation metrics over time
+- Hyperparameter logging
+- Model checkpoint tracking
+- Comparative analysis across experiments
+
+### Analysis and Insights
+
+Our careful analysis revealed:
+- **Architectural trade-offs**: How different regularization approaches (KL, VQ Loss, Adversarial) affect reconstruction quality
+- **Perceptual vs pixel metrics**: Understanding when feature-space losses outperform pixel losses
+- **Generation quality**: Systematic evaluation of how well each model generates realistic samples
+- **Training dynamics**: Observation of how different architectures converge and stabilize
+
+## Installation and Setup
+
+### Prerequisites
+
+- Python 3.8 or higher
+- CUDA-capable GPU (recommended for training)
+- Virtual environment manager (venv, conda, etc.)
+
+### Step 1: Clone the Repository
 
 ```bash
-# Install huggingface_hub if not already installed
-pip install huggingface_hub
-
-# Test a model from Hugging Face Hub
-python scripts/test_vaegan_celeba.py \
-    --model_path <huggingface-username>/<model-name> \
-    --output_dir results
+git clone <repository-url>
+cd vae_search
 ```
 
-If the model is private, authenticate first:
+### Step 2: Create Virtual Environment
+
 ```bash
-huggingface-cli login
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Linux/Mac:
+source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
 ```
 
-## Evaluation and Comparison
+### Step 3: Install Dependencies
 
-Our evaluation framework includes:
+```bash
+# Upgrade pip
+pip install --upgrade pip
 
-1. **Reconstruction Quality**: Measure how well models reconstruct input images
-2. **Generation Quality**: Evaluate the quality of generated samples
-3. **Latent Space Analysis**: Examine the learned latent representations
-4. **Interpolation**: Test smoothness of latent space interpolations
-5. **Performance Metrics**: Track training time, memory usage, and convergence
+# Install pythae library first (required dependency)
+cd pythae
+pip install -e .
+cd ..
 
-### Running Evaluations
+# Install all other dependencies
+pip install -r requirements.txt
+```
 
-After training, models are automatically evaluated. Results are saved in the model directory. You can also run custom evaluations using the test scripts.
+### Step 4: Download Dataset
 
-## Implementation Notes
+```bash
+# Download CelebA dataset from Google Drive
+python data-download-gdrive.py celeba -o data
+```
 
-### Challenges Encountered
+This will create `data/celeba/` with `train_data.npz` and `eval_data.npz` files.
 
-During implementation, we encountered and resolved several challenges:
+### Step 5: Configure Wandb (Optional but Recommended)
 
-1. **Memory Management**: Large datasets (e.g., CelebA) require careful batch size tuning
-2. **Hyperparameter Tuning**: Finding optimal learning rates and regularization weights
-3. **Training Stability**: Some architectures require specific initialization or training schedules
-4. **Hardware Constraints**: CPU vs GPU training considerations
+```bash
+# Login to wandb
+wandb login
 
-### Solutions and Best Practices
+# Your API key will be prompted
+```
 
-- Use CPU-optimized configurations for systems without GPU
-- Start with smaller batch sizes and gradually increase
-- Monitor training metrics to detect convergence or instability
-- Save checkpoints regularly to resume training if needed
+## Usage Examples
 
-## Contributing
+### Training VQVAE on CelebA (GPU)
 
-This is a course project repository. For questions or issues, please contact the team members.
+```bash
+# Using the shell script (recommended)
+./training_shell_scripts/train_vqvae_celeba_gpu.sh
 
-## License
+# Or directly with Python
+python training.py \
+    --dataset celeba \
+    --model_name vqvae \
+    --model_config configs/celeba/vqvae_config.json \
+    --training_config configs/celeba/vqvae_training_config_gpu.json \
+    --nn convnet \
+    --use_wandb \
+    --wandb_project vqvae-celeba \
+    --wandb_entity your_entity
+```
 
-See the LICENSE file for details.
+### Training VAEGAN on CelebA (GPU)
 
-## Acknowledgments
+```bash
+# Using the shell script
+./training_shell_scripts/train_vaegan_celeba_gpu.sh
 
-This project is built on top of the [pythae](https://github.com/clementchadebec/benchmark_VAE) library, which provides a unified framework for various VAE architectures.
+# Or directly with Python
+python training.py \
+    --dataset celeba \
+    --model_name vaegan \
+    --model_config configs/celeba/vaegan_config.json \
+    --training_config configs/celeba/vaegan_training_config_gpu.json \
+    --nn convnet \
+    --use_wandb \
+    --wandb_project vaegan-celeba
+```
+
+### Evaluating a Trained Model
+
+```bash
+# Evaluate VQVAE
+python evaluate_vqvae.py \
+    --checkpoint_path my_models_on_celeba/VQVAE_training_YYYY-MM-DD_HH-MM-SS/final_model \
+    --data_root data \
+    --dataset celeba \
+    --n_eval_samples 10000 \
+    --use_wandb \
+    --wandb_project vqvae-evaluation
+
+# Evaluate VAEGAN
+python evaluate_vaegan.py \
+    --checkpoint_path my_models_on_celeba/VAEGAN_training_YYYY-MM-DD_HH-MM-SS/final_model \
+    --data_root data \
+    --dataset celeba \
+    --n_eval_samples 10000 \
+    --use_wandb \
+    --wandb_project vaegan-evaluation
+```
+
+### Running BetaVAE Analysis Notebook
+
+```bash
+# Start Jupyter
+jupyter notebook
+
+# Open celebA_betavae.ipynb
+# Follow the cells to reproduce our BetaVAE experiments
+```
+
+## Reproducibility
+
+All experiments are fully reproducible:
+
+1. **Fixed random seeds** in training and evaluation scripts
+2. **Version-controlled configurations** for all hyperparameters
+3. **Documented data preprocessing** steps
+4. **Model checkpoints** saved with full configuration
+5. **Evaluation scripts** that can load any checkpoint and reproduce metrics
+
+## Key Contributions
+
+1. **Comprehensive Implementation**: Full implementations of VAE, BetaVAE, VAEGAN, and VQVAE with careful attention to architectural details
+2. **Rigorous Evaluation Framework**: Custom evaluation scripts with multiple perceptual and quantitative metrics
+3. **Infrastructure Setup**: GPU compute configuration, Hugging Face integration, and wandb tracking
+4. **Detailed Documentation**: Extensive documentation explaining architectural differences and metric interpretations
+5. **Reproducible Research**: Complete experimental framework that can be easily reproduced and extended
 
 ## Citation
 
-If you use this work, please cite:
+If you use this codebase in your research, please cite:
 
 ```bibtex
 @software{vae_search,
-  title = {VAE Architecture Evaluation Project},
-  author = {Muabshir, Hamza and Krotov, Alexsei},
-  year = {2024},
+  author = {Mubashir, Hamza and Krotov, Alexsei},
+  title = {Variational Autoencoder Research: Comprehensive Analysis of VAE Architectures},
+  year = {2025},
   url = {<repository-url>}
 }
 ```
 
+## License
+
+[Specify your license here]
+
+## Acknowledgments
+
+- PyTorch VAE (pythae) library for the base implementations
+- Explorer cluster team for GPU compute resources
+- Hugging Face for model hosting infrastructure
+- Weights & Biases for experiment tracking platform
+
+## Contact
+
+For questions or collaborations, please contact:
+- Hamza Mubashir: [email]
+- Alexsei Krotov: [email]

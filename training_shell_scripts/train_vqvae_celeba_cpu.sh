@@ -4,15 +4,15 @@
 set -e  # Exit on error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR/.."  # Go to project root
 
 # Activate virtual environment
-source ../../venv/bin/activate
+source venv/bin/activate
 
 # Check if CelebA data exists
 if [ ! -f "data/celeba/train_data.npz" ] || [ ! -f "data/celeba/eval_data.npz" ]; then
     echo "CelebA data not found. Please download it first:"
-    echo "  python data-download-fast.py celeba -o data"
+    echo "  python data-download-gdrive.py celeba -o data"
     exit 1
 fi
 

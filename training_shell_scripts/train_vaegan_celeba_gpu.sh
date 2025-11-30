@@ -1,10 +1,10 @@
 #!/bin/bash
-# Script to train VQ-VAE on CelebA dataset with GPU-optimized settings
+# Script to train VAEGAN on CelebA dataset with GPU-optimized settings
 
 set -e  # Exit on error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR/.."  # Go to project root
 
 # Load CUDA module if available
 if command -v module &> /dev/null; then
@@ -12,20 +12,20 @@ if command -v module &> /dev/null; then
 fi
 
 # Activate virtual environment
-source ../../venv/bin/activate
+source venv/bin/activate
 
 # Check if CelebA data exists
 if [ ! -f "data/celeba/train_data.npz" ] || [ ! -f "data/celeba/eval_data.npz" ]; then
     echo "CelebA data not found. Please download it first:"
-    echo "  python data-download.py celeba -o data"
+    echo "  python data-download-gdrive.py celeba -o data"
     exit 1
 fi
 
 echo "=========================================="
-echo "Starting VQ-VAE training on CelebA (GPU)"
+echo "Starting VAEGAN training on CelebA (GPU)"
 echo "=========================================="
-echo "Model config: configs/celeba/vqvae_config.json"
-echo "Training config: configs/celeba/vqvae_training_config_gpu.json"
+echo "Model config: configs/celeba/vaegan_config.json"
+echo "Training config: configs/celeba/vaegan_training_config_gpu.json"
 echo "=========================================="
 
 # Verify GPU availability
@@ -34,12 +34,12 @@ python3 -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}');
 # Start training with wandb
 python training.py \
     --dataset celeba \
-    --model_name vqvae \
-    --model_config configs/celeba/vqvae_config.json \
-    --training_config configs/celeba/vqvae_training_config_gpu.json \
+    --model_name vaegan \
+    --model_config configs/celeba/vaegan_config.json \
+    --training_config configs/celeba/vaegan_training_config_gpu.json \
     --nn convnet \
     --use_wandb \
-    --wandb_project vqvae-celeba \
+    --wandb_project vaegan-celeba \
     --wandb_entity benchmark_team
 
 echo "=========================================="
