@@ -154,29 +154,14 @@
   \end{figure}
 \end{frame}
 
-\begin{frame}{Visual evaluation - reconstruction}
+\begin{frame}{Visual evaluation - reconstruction and generation ($\beta$-VAE)}
+  \centering
+  \includegraphics[width=0.45\linewidth]{Figures/Recon Final only All.png}
+  \vspace{0.4em}
+  \includegraphics[width=0.8\linewidth]{Figures/Final_Generation VAE and b-VAE.png}
+  \vspace{0.4em}
   \begin{itemize}
-    \begin{figure}[h]
-        \centering
-        \includegraphics[width=\linewidth]{Figures/Recon Final only All.png}
-        %\caption{Part 1}
-        \label{fig: HW1-1}
-    \end{figure}
-    \item $\beta$ results in worse reconstruction.
-    %% And we could not show the benefits of large beta - the disentanglement. Why?... Not sure. 
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Visual evaluation - generation}
-  \begin{itemize}
-    \begin{figure}[h]
-        \centering
-        \includegraphics[width=\linewidth]{Figures/Final_Generation VAE and b-VAE.png}
-        %\caption{Part 1}
-        \label{fig: HW1-1}
-    \end{figure}
-    \item $\beta$ results in worse generation.
-    %% And we could not show the benefits of large beta - the disentanglement. Why?... Not sure. 
+    \item Increasing $\beta$ visibly worsens both reconstructions and generations (more blur, loss of detail).
   \end{itemize}
 \end{frame}
 
