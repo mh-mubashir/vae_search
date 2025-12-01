@@ -1,0 +1,280 @@
+\documentclass{beamer}
+\usepackage{graphicx}
+\usepackage{amsmath, amssymb}
+\usetheme{CambridgeUS}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\definecolor{darkred}{RGB}{139,0,0}
+\setbeamertemplate{itemize item}{\color{darkred}$\bullet$} 
+\setbeamertemplate{itemize subitem}{\color{darkred}$\circ$} 
+\setbeamertemplate{itemize subsubitem}{\color{darkred}$\circ$} 
+\setbeamertemplate{enumerate item}{\color{darkred}\insertenumlabel}
+\setbeamertemplate{enumerate subitem}{\color{darkred}\romannumeral\insertsubenumlabel}
+\setbeamertemplate{enumerate subsubitem}{\color{darkred}\romannumeral\insertsubsubenumlabel}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+    
+\title{VAEs}
+\author{Aleksei Krotov \& Muhammad Hamza Mubashir}
+\institute{Prof. Sarah Ostadabbas. EECE-7398 @Northeastern University.}
+\date{December 10, 2025}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \begin{itemize}
+    \item Motivation, problem statement, and project goal
+    \item Background on VAE, $\beta$-VAE, VQ-VAE, and VAEGAN
+    \item Dataset and implementation details (CelebA, Pythae, HPC setup)
+    \item Qualitative evaluation: reconstructions and generations
+    \item Quantitative evaluation: reconstruction and perceptual metrics
+    \item Discussion, key takeaways, and future work
+  \end{itemize}
+\end{frame}
+
+% \begin{frame}{Paper Information}
+%   \begin{itemize}
+%     \item Authors: 
+%     \item Author affiliations: University of Utah; Zhejiang University; UCLA
+%     \item Venue: arXiv (July 2024), CVPR 2025
+%     \item Project page: \texttt{https://gaussiansplashing.github.io/}
+%     \item Github: \texttt{still only promises}
+%     \item Citations (Nov 2025): arXiv - 39, CVPR - 0.
+%     \item Repo stars: N/A (no public repo)
+%   \end{itemize}
+% \end{frame}
+
+\begin{frame}{Problem and Goal}
+  \begin{itemize}
+    \item \textbf{Problem}: How do different VAE-based architectures trade off reconstruction quality, disentanglement, and sample realism on complex image data (CelebA faces)?
+    \item \textbf{Goal}: Implement and fairly compare VAE, $\beta$-VAE, VQ-VAE, and VAEGAN using a shared training pipeline and modern perceptual metrics (LPIPS, SSIM, GMSD).
+    \item Use a unified experimental setup (same dataset, architecture family, and metrics) to make the comparison meaningful.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{VAE architecture}
+  \begin{itemize}
+    \item Standard VAE (Kingma \& Welling, 2014) learns a probabilistic encoder $q_\phi(z \mid x)$ and decoder $p_\theta(x \mid z)$ with prior $p(z) = \mathcal{N}(0, I)$.
+    \item Training maximizes the evidence lower bound (ELBO):
+    \[
+      \mathcal{L}_{\text{VAE}} = \mathbb{E}_{q_\phi(z \mid x)}[\log p_\theta(x \mid z)]
+      - \mathrm{KL}\!\left(q_\phi(z \mid x)\,\|\,p(z)\right).
+    \]
+    \item In our implementation, we use convolutional encoders/decoders from the \texttt{pythae} library with a Gaussian latent space.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{$\beta$-VAE and VQ-VAE}
+  \begin{itemize}
+    \item \textbf{$\beta$-VAE} (Higgins et al., 2017):
+      \begin{itemize}
+        \item Same architecture as VAE, but with a modified objective
+        \[
+          \mathcal{L}_{\beta\text{-VAE}} =
+          \mathbb{E}_{q_\phi(z \mid x)}[\log p_\theta(x \mid z)]
+          - \beta\,\mathrm{KL}\!\left(q_\phi(z \mid x)\,\|\,p(z)\right),
+        \]
+        where $\beta > 1$ encourages disentangled latent factors.
+        \item Larger $\beta$ yields more factorized latents but typically worse pixel-level reconstructions.
+      \end{itemize}
+    \item \textbf{VQ-VAE} (van den Oord et al., 2017):
+      \begin{itemize}
+        \item Deterministic encoder maps $x$ to continuous embeddings, which are then quantized to the nearest codebook vector (discrete latent indices).
+        \item Loss replaces KL with vector-quantization loss:
+        \[
+          \mathcal{L}_{\text{VQ-VAE}} = \|x - \hat{x}\|_2^2 + \mathcal{L}_{\text{VQ}},
+        \]
+        where $\mathcal{L}_{\text{VQ}}$ is the commitment + codebook update loss.
+        \item Latent space is a learned discrete codebook, enabling structured discrete representations.
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{VAEGAN architecture}
+  \begin{itemize}
+    \item \textbf{VAEGAN} (Larsen et al., 2016) combines a VAE-style encoder/decoder with a GAN discriminator.
+    \item The decoder acts as a generator; a discriminator $D(x)$ provides:
+      \begin{itemize}
+        \item Feature-space reconstruction loss (MSE between discriminator feature maps of $x$ and $\hat{x}$).
+        \item Adversarial loss encouraging realistic generations.
+      \end{itemize}
+    \item The total loss decomposes into encoder, decoder, and discriminator terms:
+      \[
+        \mathcal{L}_{\text{total}} =
+        \mathcal{L}_{\text{enc}} + \mathcal{L}_{\text{dec}} + \mathcal{L}_{\text{disc}},
+      \]
+      with $\mathcal{L}_{\text{enc}}$ including KL + feature-space recon loss and
+      $\mathcal{L}_{\text{dec}}$ balancing reconstruction and adversarial terms.
+    \item Objective: retain an interpretable latent space while significantly improving perceptual sample quality.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Dataset and Implementation}
+  \begin{itemize}
+    \item \textbf{Dataset}: CelebA (aligned \& cropped $64\times64$ face images), $\sim 162{,}000$ training and $\sim 20{,}000$ evaluation images.
+    \item \textbf{Implementation}: All four models (VAE, $\beta$-VAE, VQ-VAE, VAEGAN) implemented using the \href{https://github.com/clementchadebec/benchmark_VAE/tree/main}{\texttt{pythae}} framework with convolutional backbones.
+    \item \textbf{Training setup}: Experiments run on the Northeastern Explorer GPU cluster (A100/V100-class GPUs) with a unified training pipeline.
+    \item \textbf{Experiment tracking}: We use Weights \& Biases (wandb) to log training curves, reconstruction/generation metrics, and model configurations.
+    \item \textbf{Code \& configs}: Full repository and configuration files are available at \href{https://github.com/mh-mubashir/vae_search/blob/main/README.md}{project GitHub}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Experiment tracking and wandb links}
+  \begin{itemize}
+    \item \textbf{Training runs on wandb:}
+      \begin{itemize}
+        \item \href{https://wandb.ai/hamzamubashir-ai-northeastern-university/vqvae-celeba}{VQ-VAE training (CelebA)} (\emph{All} training information present here)
+        \item \href{https://wandb.ai/hamzamubashir-ai-northeastern-university/vae-search-celeba}{VAE/VAEGAN training (CelebA)} (\emph{All} training information present here)
+      \end{itemize}
+    \item \textbf{Evaluation runs on wandb:}
+      \begin{itemize}
+        \item \href{https://wandb.ai/hamzamubashir-ai-northeastern-university/vqvae-evaluation}{VQ-VAE evaluation} (see the \emph{logs} section for full metric tables)
+        \item \href{https://wandb.ai/hamzamubashir-ai-northeastern-university/vaegan-evaluation}{VAEGAN evaluation} (see the \emph{logs} section for full metric tables)
+      \end{itemize}
+    \item Below we show example training loss curves (epoch loss) for different models:
+  \end{itemize}
+  \begin{figure}[h]
+    \centering
+    \includegraphics[width=0.32\linewidth]{Figures/bvae_training_epoch_loss.png}
+    \includegraphics[width=0.32\linewidth]{Figures/vqvae_training_epoch_loss.png}
+    \includegraphics[width=0.32\linewidth]{Figures/vaegan_training_epoch_loss.png}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Visual evaluation - reconstruction}
+  \begin{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Recon Final only 1.png}
+        %\caption{Part 1}
+        \label{fig: HW1-1}
+    \end{figure}
+    
+    \item  $\beta$ results in worse reconstruction.
+  \end{itemize}
+  
+\end{frame}
+
+\begin{frame}{Visual evaluation - reconstruction}
+  \begin{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Recon Final only All.png}
+        %\caption{Part 1}
+        \label{fig: HW1-1}
+    \end{figure}
+    \item $\beta$ results in worse reconstruction.
+    %% And we could not show the benefits of large beta - the disentanglement. Why?... Not sure. 
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Visual evaluation - generation}
+  \begin{itemize}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Final_Generation VAE and b-VAE.png}
+        %\caption{Part 1}
+        \label{fig: HW1-1}
+    \end{figure}
+    \item $\beta$ results in worse generation.
+    %% And we could not show the benefits of large beta - the disentanglement. Why?... Not sure. 
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Numerical evaluation}
+  \begin{itemize}
+    \item Metrics: binary cross-entropy (BCE), mean squared error (MSE), KL divergence, ELBO, and perceptual metrics (LPIPS, SSIM, GMSD).
+
+    \begin{table}[h]
+    \fontsize{9pt}{11pt}\selectfont
+    \centering
+    \begin{tabular}{c|ccccccc}
+    \textbf{$\beta$} & \textbf{BCE} & \textbf{MSE} & \textbf{KL} & \textbf{ELBO} & \textbf{LPIPS} & \textbf{SSIM} & \textbf{GMSD} \\
+    \hline
+    0.5 & 23.214 & 0.015 & 45.934 & 46.181 & 0.289 & 0.643 & 0.163 \\
+    1   & 32.491 & 0.021 & 14.912 & 47.402 & 0.318 & 0.565 & 0.190 \\
+    4   & 50.755 & 0.033 & 1.090  & 55.115 & 0.380 & 0.477 & 0.224 \\
+    \textit{VQ-VAE} & N/A & 0.007 & N/A & N/A & 0.260 & 0.687 & 0.155 \\
+    \textit{VAEGAN} & 0.508 & 0.009 & 162.584 & 162.592 & 0.301 & 0.661 & 0.160 \\
+    \end{tabular}
+    \caption{Reconstruction metrics for different $\beta$ values and advanced VAE variants.}
+    \end{table}
+
+    
+    \begin{table}[h]
+    \fontsize{9pt}{11pt}\selectfont
+    \centering
+    \begin{tabular}{c|ccccccc}
+    \textbf{$\beta$} & \textbf{BCE} & \textbf{MSE} & \textbf{KL} & \textbf{ELBO} & \textbf{LPIPS} & \textbf{SSIM} & \textbf{GMSD} \\
+    \hline
+    0.5 & 8.764 & 0.006 & 39.163 & 28.345 & 0.093 & 0.870 & 0.109 \\
+    1   & 9.131 & 0.006 & 12.443 & 21.574 & 0.090 & 0.835 & 0.121 \\
+    4   & 12.050 & 0.008 & 0.945 & 15.831 & 0.073 & 0.841 & 0.124 \\
+    \textit{VQ-VAE} & N/A & 0.009 & N/A & N/A & 0.154 & 0.801 & 0.113 \\
+    \textit{VAEGAN} & 0.584 & 0.001 & 165.405 & 165.406 & 0.033 & 0.970 & 0.031 \\
+    \end{tabular}
+    \caption{Generation metrics for different $\beta$ values and advanced VAE variants.}
+    \end{table}
+    
+    
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Discussion - effects of $\beta$}
+  \begin{itemize}
+    \item Increasing $\beta$ from $0.5$ to $4$ sharply reduces KL (from $\approx 46$ to $\approx 1$), indicating stronger regularization and more factorized latent space.
+    \item This comes at the cost of higher reconstruction error and worse perceptual scores (MSE, LPIPS increase; SSIM decreases), i.e., blurrier and less faithful images.
+    \item Our results are consistent with the original $\beta$-VAE paper: larger $\beta$ emphasizes disentanglement over pixel-level fidelity.
+    \item On CelebA, strong disentanglement is harder to visualize, but the quantitative trends clearly show the reconstruction--disentanglement trade-off.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Discussion - VQ-VAE effects}
+  \begin{itemize}
+    \item VQ-VAE achieves reconstruction MSE $\approx 0.007$ and SSIM $\approx 0.69$, competitive with the best $\beta$ setting while using a discrete codebook instead of a Gaussian latent.
+    \item Generation/self-reconstruction metrics (MSE $\approx 0.009$, SSIM $\approx 0.80$) show good consistency, though LPIPS is slightly worse than the best $\beta$-VAE.
+    \item The discrete latent space encourages reuse of codebook entries, leading to structured latent usage that can be beneficial for downstream tasks.
+    \item In practice, VQ-VAE balances reconstruction quality and latent discreteness, sitting between pure likelihood-based models and fully adversarial ones.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Discussion - VAEGAN and comparative view}
+  \begin{itemize}
+    \item VAEGAN's feature-space reconstruction and adversarial training yield the strongest generation metrics (SSIM $\approx 0.97$, LPIPS $\approx 0.03$), with visually sharp and realistic samples.
+    \item Pixel-space reconstruction metrics (MSE, BCE) are less informative for VAEGAN, since the model is optimized for perceptual similarity rather than exact pixel matches.
+    \item Compared to $\beta$-VAE and VQ-VAE, VAEGAN sacrifices some interpretability of the latent space in exchange for much higher sample quality.
+    \item Overall: $\beta$-VAE emphasizes disentanglement, VQ-VAE emphasizes discrete latent structure with good reconstructions, and VAEGAN emphasizes perceptual realism of generations.
+  \end{itemize}
+\end{frame}
+
+
+
+\begin{frame}{Summary}
+  \begin{itemize}
+    \item Implemented and evaluated VAE, $\beta$-VAE, VQ-VAE, and VAEGAN on CelebA using a unified \texttt{pythae}-based pipeline and modern perceptual metrics.
+    \item $\beta$-VAE confirms the classic trade-off: higher $\beta$ improves regularization and potential disentanglement but harms reconstruction quality.
+    \item VQ-VAE uses a discrete codebook and VQ loss to achieve competitive reconstructions and structured latent representations.
+    \item VAEGAN delivers the best perceptual generation quality via feature-space loss and adversarial training, at the cost of more complex optimization.
+    \item \textbf{Future work}: scale up architectures, explore disentanglement metrics on CelebA, and evaluate how these representations transfer to downstream tasks.
+  \end{itemize}
+\end{frame}
+
+
+\end{document}
+

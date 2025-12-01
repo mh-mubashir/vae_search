@@ -34,3 +34,4 @@ matplotlib>=3.5.0
 # tensorboard>=2.8.0  # Alternative to wandb
 # tensorboardX>=2.5  # PyTorch tensorboard support
 
+
