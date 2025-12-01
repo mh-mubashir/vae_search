@@ -126,7 +126,7 @@
   \begin{itemize}
     \item \textbf{Dataset}: CelebA (aligned \& cropped $64\times64$ face images), $\sim 162{,}000$ training and $\sim 20{,}000$ evaluation images.
     \item \textbf{Implementation}: All four models (VAE, $\beta$-VAE, VQ-VAE, VAEGAN) implemented using the \href{https://github.com/clementchadebec/benchmark_VAE/tree/main}{\texttt{pythae}} framework with convolutional backbones.
-    \item \textbf{Training setup}: Experiments run on the Northeastern Explorer GPU cluster (A100/V100-class GPUs) with a unified training pipeline.
+    \item \textbf{Training setup}: Experiments run on the Northeastern Explorer GPU cluster (Nvidia Tesla P100) with a unified training pipeline.
     \item \textbf{Experiment tracking}: We use Weights \& Biases (wandb) to log training curves, reconstruction/generation metrics, and model configurations.
     \item \textbf{Code \& configs}: Full repository and configuration files are available at \href{https://github.com/mh-mubashir/vae_search/blob/main/README.md}{project GitHub}.
   \end{itemize}
