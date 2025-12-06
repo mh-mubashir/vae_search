@@ -416,15 +416,18 @@
     \item \textbf{Trade-off curve}: as $\beta$ increases, KL (information capacity) drops while reconstruction error and LPIPS increase.
     \item \textbf{Key message}: stronger regularization $\Rightarrow$ more structured latents, but blurrier images.
   \end{itemize}
-  \vspace{0.4em}
+  % \vspace{0.2em}
   \begin{figure}[h]
     \centering
-    \includegraphics[width=0.6\linewidth]{Figures/beta_tradeoff_curve.png}
-  \end{figure}
-  \vspace{0.3em}
-  \begin{figure}[h]
+    \begin{minipage}[c]{0.50\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/beta_tradeoff_curve.png}
+    \end{minipage}
     \centering
-    \includegraphics[width=0.8\linewidth]{Figures/beta_disentanglement_meter.png}
+    \begin{minipage}[c]{0.60\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/beta_disentanglement_meter.png}
+    \end{minipage}
   \end{figure}
 \end{frame}
 
@@ -433,15 +436,17 @@
     \item \textbf{Reconstruction quality}: VQ-VAE sits close to the best $\beta$ settings in both MSE and SSIM, despite using a discrete latent codebook.
     \item \textbf{Latent usage}: the codebook encourages both reuse and flexibility, shaping a discrete latent geometry.
   \end{itemize}
-  \vspace{0.4em}
   \begin{figure}[h]
     \centering
-    \includegraphics[width=0.75\linewidth]{Figures/vqvae_recon_ssim_bars.png}
-  \end{figure}
-  \vspace{0.3em}
-  \begin{figure}[h]
+    \begin{minipage}[c]{0.50\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/vqvae_recon_ssim_bars.png}
+    \end{minipage}
     \centering
-    \includegraphics[width=0.75\linewidth]{Figures/vqvae_codebook_usage.png}
+    \begin{minipage}[c]{0.40\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/vqvae_codebook_usage.png}
+    \end{minipage}
   \end{figure}
 \end{frame}
 
@@ -450,15 +455,17 @@
     \item \textbf{Perceptual peak}: VAEGAN delivers the best SSIM and LPIPS for generations, reflecting visually sharp and realistic samples.
     \item \textbf{Big picture}: $\beta$-VAE, VQ-VAE, and VAEGAN occupy different corners of the interpretability--fidelity--realism triangle.
   \end{itemize}
-  \vspace{0.4em}
-  \begin{figure}[h]
+   \begin{figure}[h]
     \centering
-    \includegraphics[width=\linewidth]{Figures/model_comparison_strip.png}
-  \end{figure}
-  \vspace{0.3em}
-  \begin{figure}[h]
+    \begin{minipage}[c]{0.65\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/model_comparison_strip.png}
+    \end{minipage}
     \centering
-    \includegraphics[width=0.6\linewidth]{Figures/accuracy_disentanglement_realism_triangle.png}
+    \begin{minipage}[c]{0.30\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/accuracy_disentanglement_realism_triangle.png}
+    \end{minipage}
   \end{figure}
 \end{frame}
 
